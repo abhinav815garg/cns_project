@@ -1,0 +1,3399 @@
+(base) linux@abhinav:/scratch/abhinav/Halligan/benchmark$ docker compose up -d
+[+] Running 3/3
+ ✔ Network benchmark_default      Created                                                                                          0.1s
+ ✔ Container benchmark-browser-1  Started                                                                                          0.3s
+ ✔ Container benchmark-server-1   Started                                                                                          0.3s
+(base) linux@abhinav:/scratch/abhinav/Halligan/benchmark$ docker compose ps
+NAME                  IMAGE                                        COMMAND                  SERVICE   CREATED         STATUS         PORTS
+benchmark-browser-1   mcr.microsoft.com/playwright:v1.52.0-noble   "/bin/sh -c 'npx -y …"   browser   7 seconds ago   Up 7 seconds   0.0.0.0:5000->5000/tcp, :::5000->5000/tcp
+benchmark-server-1    benchmark-server                             "/usr/local/bin/_ent…"   server    7 seconds ago   Up 7 seconds   0.0.0.0:3000->80/tcp, :::3000->80/tcp
+(base) linux@abhinav:/scratch/abhinav/Halligan/benchmark$ cd ../halligan
+(base) linux@abhinav:/scratch/abhinav/Halligan/halligan$ pixi run env -u PYTHONPATH -u ROS_DISTRO -u AMENT_PREFIX_PATH -u AMENT_CURRENT_PREFIX python generate.py
+2026-05-08 12:47:24,427 - INFO - Generating script for CAPTCHA (1 out of 26): lemin
+## Objective
+The task image contains 2 frame(s).
+
+First, provide one-sentence visual description of each frame.
+Second, identify the relationships between frames.
+Third, using the information, identify the sequential events and the final visual criteria that leads to solving the task.
+
+Use these Python tools:
+describe(frame_id: int, description: str)
+relate(frame_id1: int, frame_id2: int = None, relationship: str = '')
+objective(description: str)
+
+## Guidelines
+1. The output should be a Python block.
+2. The third step should be generic enough, it should not reveal the answer.
+3. In the third step, all event should begin with atomic verbs like `click`, `slide`, `drag`, `draw` and refer to choices/states rather than objects.
+4. Please describe rectangle boxes with hints (e.g., case sensitivity), instructions, or placeholders as input fields.
+history: 1
+
+describe(frame_id=0, description="An empty verification box with the text 'Fit the piece to get verified' and a 'Powered by Lemin' logo.")
+describe(frame_id=1, description="A puzzle verification interface showing a dog image with a missing piece, and three puzzle piece options below it.")
+relate(frame_id1=0, frame_id2=1, relationship="The first frame is the initial state of the verification widget, and the second frame shows the active puzzle challenge.")
+objective(description="Identify the correct puzzle piece from the options provided and drag it into the empty slot on the image to complete the verification.")
+
+2026-05-08 12:47:29,579 - INFO -        [Stage 1] Objective Identification
+You are given a list of frames, their descriptions, relationships between frames, and the main task objective.
+
+Descriptions:
+Frame 0: An empty verification box with the text 'Fit the piece to get verified' and a 'Powered by Lemin' logo.
+Frame 1: A puzzle verification interface showing a dog image with a missing piece, and three puzzle piece options below it.
+
+Relations:
+Frame 0 and Frame 1: The first frame is the initial state of the verification widget, and the second frame shows the active puzzle challenge.
+
+Objective:
+Identify the correct puzzle piece from the options provided and drag it into the empty slot on the image to complete the verification.
+
+Write a Python script `def structure_abstraction(frames: list[Frame])` to identify
+all element/frame-level interactables using these tools:
+
+        Frame.get_element(position: Literal[up, down, left, right], details: str) -> Element:
+                Get one specific element by its relative position in the frame and its detailed visual description.
+                Elements can be marked as interactables.
+                position: where is the element
+                details: color, shape, and visual features of the element
+
+        Frame.split(rows: int, columns: int) -> list[Frame]:
+                Split the entire frame into SELECTABLE subframes.
+
+        Frame.grid(tiles: int) -> list[list[Element]]:
+                Convert the frame into multiple SWAPPABLE tile elements.
+                tiles: total column * row cells.
+
+        Frame.set_frame_as(interactable: str) -> None:
+                POINTABLE: You can point to specific thing(s) in a 2D area as an answer
+                DRAWABLE: You can draw trajectories from A to B on a frame as an answer
+                INPUTTABLE: You can type a text answer in this input box as an answer
+                SELECTABLE: You can click to toggle this frame as an answer choice
+                NEXT: You can click this frame to submit/skip the task
+
+        Element.set_element_as(interactable: str) -> None:
+                DRAGGABLE: Can be freely moved anywhere
+                SWAPPABLE: Can manually exchange places with another SWAPPABLE
+                SLIDEABLE_X: Can be dragged along a horizontal track
+                SLIDEABLE_Y: Can be dragged along a vertical track
+                INPUTTABLE: You can type a text answer in this input box as an answer
+                CLICKABLE: UI button that can be clicked to transition a frame or cycle through choices
+                NEXT: UI button that can be clicked to submit/skip the task
+
+## Guidelines
+1. Use NEXT only when a submit or skip button (either text or icon) is present. If neither is found, omit NEXT.
+2. Ensure there is either zero or one NEXT, while maintaining exactly one other interactable type.
+3. Treat the dependent frame in a relationship as non-interactable.
+4. Prioritize extracting all interactables over solving the task.
+5. Choose either interactable frames or elements, but stick to one type for consistency.
+6. Ensure that frames are only marked with frame interactable types, and elements are only marked with element interactable types.
+7. When using split() and grid(), remember to mark the subframes/elements as interactables.
+history: 1
+def process(frames: list[Frame]):
+    """
+    Identifies interactables for the puzzle verification task.
+    Frame 0 is the initial state (non-interactable).
+    Frame 1 contains the puzzle pieces and the target slot.
+    """
+    subframes = frames[1].split(rows=2, columns=1)
+    puzzle_options_frame = subframes[1]
+    piece1 = puzzle_options_frame.get_element(position='left', details='puzzle piece option 1')
+    piece2 = puzzle_options_frame.get_element(position='center', details='puzzle piece option 2')
+    piece3 = puzzle_options_frame.get_element(position='right', details='puzzle piece option 3')
+    piece1.set_element_as('DRAGGABLE')
+    piece2.set_element_as('DRAGGABLE')
+    piece3.set_element_as('DRAGGABLE')
+
+0: 512x768 9 objects, 357.1ms
+Speed: 3.4ms preprocess, 357.1ms inference, 2.5ms postprocess per image at shape (1, 3, 512, 768)
+2026-05-08 12:47:48,156 - INFO -        [Stage 2] Structure Abstraction
+history: 1
+2026-05-08 12:48:06,314 - INFO -        [Stage 3] Solution Composition
+2026-05-08 12:48:06,348 - INFO - Generating script for CAPTCHA (2 out of 26): geetest/slide
+## Objective
+The task image contains 5 frame(s).
+
+First, provide one-sentence visual description of each frame.
+Second, identify the relationships between frames.
+Third, using the information, identify the sequential events and the final visual criteria that leads to solving the task.
+
+Use these Python tools:
+describe(frame_id: int, description: str)
+relate(frame_id1: int, frame_id2: int = None, relationship: str = '')
+objective(description: str)
+
+## Guidelines
+1. The output should be a Python block.
+2. The third step should be generic enough, it should not reveal the answer.
+3. In the third step, all event should begin with atomic verbs like `click`, `slide`, `drag`, `draw` and refer to choices/states rather than objects.
+4. Please describe rectangle boxes with hints (e.g., case sensitivity), instructions, or placeholders as input fields.
+history: 1
+
+describe(0, "A blank white frame.")
+describe(1, "A colorful puzzle interface with a missing star-shaped piece and various icons.")
+describe(2, "A blue slider button with a right-pointing arrow on a grey track.")
+describe(3, "Text instruction reading 'Slide to complete the puzzle'.")
+describe(4, "The logo text 'GEETEST' with a gear icon.")
+
+relate(1, 2, "The slider is used to interact with the puzzle in the frame.")
+relate(1, 3, "The text provides instructions for the puzzle in the frame.")
+relate(1, 4, "The logo identifies the service provider for the puzzle.")
+
+objective("Slide the slider button from the left to the right end of the track to complete the puzzle.")
+
+2026-05-08 12:48:18,045 - INFO -        [Stage 1] Objective Identification
+You are given a list of frames, their descriptions, relationships between frames, and the main task objective.
+
+Descriptions:
+Frame 0: A blank white frame.
+Frame 1: A colorful puzzle interface with a missing star-shaped piece and various icons.
+Frame 2: A blue slider button with a right-pointing arrow on a grey track.
+Frame 3: Text instruction reading 'Slide to complete the puzzle'.
+Frame 4: The logo text 'GEETEST' with a gear icon.
+
+Relations:
+Frame 1 and Frame 2: The slider is used to interact with the puzzle in the frame.
+Frame 1 and Frame 3: The text provides instructions for the puzzle in the frame.
+Frame 1 and Frame 4: The logo identifies the service provider for the puzzle.
+
+Objective:
+Slide the slider button from the left to the right end of the track to complete the puzzle.
+
+Write a Python script `def structure_abstraction(frames: list[Frame])` to identify
+all element/frame-level interactables using these tools:
+
+        Frame.get_element(position: Literal[up, down, left, right], details: str) -> Element:
+                Get one specific element by its relative position in the frame and its detailed visual description.
+                Elements can be marked as interactables.
+                position: where is the element
+                details: color, shape, and visual features of the element
+
+        Frame.split(rows: int, columns: int) -> list[Frame]:
+                Split the entire frame into SELECTABLE subframes.
+
+        Frame.grid(tiles: int) -> list[list[Element]]:
+                Convert the frame into multiple SWAPPABLE tile elements.
+                tiles: total column * row cells.
+
+        Frame.set_frame_as(interactable: str) -> None:
+                POINTABLE: You can point to specific thing(s) in a 2D area as an answer
+                DRAWABLE: You can draw trajectories from A to B on a frame as an answer
+                INPUTTABLE: You can type a text answer in this input box as an answer
+                SELECTABLE: You can click to toggle this frame as an answer choice
+                NEXT: You can click this frame to submit/skip the task
+
+        Element.set_element_as(interactable: str) -> None:
+                DRAGGABLE: Can be freely moved anywhere
+                SWAPPABLE: Can manually exchange places with another SWAPPABLE
+                SLIDEABLE_X: Can be dragged along a horizontal track
+                SLIDEABLE_Y: Can be dragged along a vertical track
+                INPUTTABLE: You can type a text answer in this input box as an answer
+                CLICKABLE: UI button that can be clicked to transition a frame or cycle through choices
+                NEXT: UI button that can be clicked to submit/skip the task
+
+## Guidelines
+1. Use NEXT only when a submit or skip button (either text or icon) is present. If neither is found, omit NEXT.
+2. Ensure there is either zero or one NEXT, while maintaining exactly one other interactable type.
+3. Treat the dependent frame in a relationship as non-interactable.
+4. Prioritize extracting all interactables over solving the task.
+5. Choose either interactable frames or elements, but stick to one type for consistency.
+6. Ensure that frames are only marked with frame interactable types, and elements are only marked with element interactable types.
+7. When using split() and grid(), remember to mark the subframes/elements as interactables.
+history: 1
+def process(frames: list[Frame]):
+    """
+    Identifies interactables for the puzzle completion task.
+    Frame 1 is the main puzzle interface.
+    Frame 2 is the slider used to interact with the puzzle.
+    """
+    slider_element = frames[1].get_element(position='left', details='blue slider button with a right-pointing arrow')
+    slider_element.set_element_as('SLIDEABLE_X')
+
+0: 512x768 35 objects, 310.2ms
+Speed: 19.0ms preprocess, 310.2ms inference, 2.7ms postprocess per image at shape (1, 3, 512, 768)
+2026-05-08 12:48:24,325 - INFO -        [Stage 2] Structure Abstraction
+history: 1
+2026-05-08 12:48:40,425 - INFO -        [Stage 3] Solution Composition
+2026-05-08 12:48:40,465 - INFO - Generating script for CAPTCHA (3 out of 26): geetest/gobang
+## Objective
+The task image contains 2 frame(s).
+
+First, provide one-sentence visual description of each frame.
+Second, identify the relationships between frames.
+Third, using the information, identify the sequential events and the final visual criteria that leads to solving the task.
+
+Use these Python tools:
+describe(frame_id: int, description: str)
+relate(frame_id1: int, frame_id2: int = None, relationship: str = '')
+objective(description: str)
+
+## Guidelines
+1. The output should be a Python block.
+2. The third step should be generic enough, it should not reveal the answer.
+3. In the third step, all event should begin with atomic verbs like `click`, `slide`, `drag`, `draw` and refer to choices/states rather than objects.
+4. Please describe rectangle boxes with hints (e.g., case sensitivity), instructions, or placeholders as input fields.
+history: 1
+
+describe(frame_id=0, description="A blank screen with the instruction 'Click and drop to line up five identical items in a row' and a GEETEST logo.")
+describe(frame_id=1, description="A 5x5 grid containing various colored circular items, with some empty slots.")
+relate(frame_id1=0, frame_id2=1, relationship="The first frame provides the instructions for the puzzle presented in the second frame.")
+objective(description="The goal is to arrange five identical items in a single row or column within the grid by interacting with the available elements.")
+
+2026-05-08 12:48:44,026 - INFO -        [Stage 1] Objective Identification
+You are given a list of frames, their descriptions, relationships between frames, and the main task objective.
+
+Descriptions:
+Frame 0: A blank screen with the instruction 'Click and drop to line up five identical items in a row' and a GEETEST logo.
+Frame 1: A 5x5 grid containing various colored circular items, with some empty slots.
+
+Relations:
+Frame 0 and Frame 1: The first frame provides the instructions for the puzzle presented in the second frame.
+
+Objective:
+The goal is to arrange five identical items in a single row or column within the grid by interacting with the available elements.
+
+Write a Python script `def structure_abstraction(frames: list[Frame])` to identify
+all element/frame-level interactables using these tools:
+
+        Frame.get_element(position: Literal[up, down, left, right], details: str) -> Element:
+                Get one specific element by its relative position in the frame and its detailed visual description.
+                Elements can be marked as interactables.
+                position: where is the element
+                details: color, shape, and visual features of the element
+
+        Frame.split(rows: int, columns: int) -> list[Frame]:
+                Split the entire frame into SELECTABLE subframes.
+
+        Frame.grid(tiles: int) -> list[list[Element]]:
+                Convert the frame into multiple SWAPPABLE tile elements.
+                tiles: total column * row cells.
+
+        Frame.set_frame_as(interactable: str) -> None:
+                POINTABLE: You can point to specific thing(s) in a 2D area as an answer
+                DRAWABLE: You can draw trajectories from A to B on a frame as an answer
+                INPUTTABLE: You can type a text answer in this input box as an answer
+                SELECTABLE: You can click to toggle this frame as an answer choice
+                NEXT: You can click this frame to submit/skip the task
+
+        Element.set_element_as(interactable: str) -> None:
+                DRAGGABLE: Can be freely moved anywhere
+                SWAPPABLE: Can manually exchange places with another SWAPPABLE
+                SLIDEABLE_X: Can be dragged along a horizontal track
+                SLIDEABLE_Y: Can be dragged along a vertical track
+                INPUTTABLE: You can type a text answer in this input box as an answer
+                CLICKABLE: UI button that can be clicked to transition a frame or cycle through choices
+                NEXT: UI button that can be clicked to submit/skip the task
+
+## Guidelines
+1. Use NEXT only when a submit or skip button (either text or icon) is present. If neither is found, omit NEXT.
+2. Ensure there is either zero or one NEXT, while maintaining exactly one other interactable type.
+3. Treat the dependent frame in a relationship as non-interactable.
+4. Prioritize extracting all interactables over solving the task.
+5. Choose either interactable frames or elements, but stick to one type for consistency.
+6. Ensure that frames are only marked with frame interactable types, and elements are only marked with element interactable types.
+7. When using split() and grid(), remember to mark the subframes/elements as interactables.
+history: 1
+def process(frames: list[Frame]):
+    """
+    Identifies interactables in the provided frames.
+    Frame 0 is the instruction frame (non-interactable).
+    Frame 1 is the puzzle grid containing draggable items.
+    """
+    grid_elements = frames[1].grid(tiles=25)
+    for row in grid_elements:
+        for element in row:
+            if element is not None:
+                element.set_element_as('DRAGGABLE')
+2026-05-08 12:48:47,047 - INFO -        [Stage 2] Structure Abstraction
+history: 1
+2026-05-08 12:48:56,678 - INFO -        [Stage 3] Solution Composition
+2026-05-08 12:48:56,708 - INFO - Generating script for CAPTCHA (4 out of 26): geetest/icon
+## Objective
+The task image contains 3 frame(s).
+
+First, provide one-sentence visual description of each frame.
+Second, identify the relationships between frames.
+Third, using the information, identify the sequential events and the final visual criteria that leads to solving the task.
+
+Use these Python tools:
+describe(frame_id: int, description: str)
+relate(frame_id1: int, frame_id2: int = None, relationship: str = '')
+objective(description: str)
+
+## Guidelines
+1. The output should be a Python block.
+2. The third step should be generic enough, it should not reveal the answer.
+3. In the third step, all event should begin with atomic verbs like `click`, `slide`, `drag`, `draw` and refer to choices/states rather than objects.
+4. Please describe rectangle boxes with hints (e.g., case sensitivity), instructions, or placeholders as input fields.
+history: 1
+
+describe(frame_id=0, description="The frame displays a prompt to select three icons in a specific order: a robotic arm, a radiation symbol, and a padlock.")
+describe(frame_id=1, description="The frame shows a grassy background with three semi-transparent icons: a radiation symbol, a padlock, and a robotic arm.")
+describe(frame_id=2, description="The frame shows a blue button with the text 'OK' centered on it.")
+
+relate(frame_id1=0, frame_id2=1, relationship="The first frame provides the target sequence for the icons presented in the second frame.")
+relate(frame_id1=1, frame_id2=2, relationship="The second frame contains the interactive elements that must be selected before clicking the confirmation button in the third frame.")
+
+objective(description="Click the icons in the grassy background in the exact order specified in the prompt, then click the confirmation button to complete the task.")
+
+2026-05-08 12:49:00,611 - INFO -        [Stage 1] Objective Identification
+You are given a list of frames, their descriptions, relationships between frames, and the main task objective.
+
+Descriptions:
+Frame 0: The frame displays a prompt to select three icons in a specific order: a robotic arm, a radiation symbol, and a padlock.
+Frame 1: The frame shows a grassy background with three semi-transparent icons: a radiation symbol, a padlock, and a robotic arm.
+Frame 2: The frame shows a blue button with the text 'OK' centered on it.
+
+Relations:
+Frame 0 and Frame 1: The first frame provides the target sequence for the icons presented in the second frame.
+Frame 1 and Frame 2: The second frame contains the interactive elements that must be selected before clicking the confirmation button in the third frame.
+
+Objective:
+Click the icons in the grassy background in the exact order specified in the prompt, then click the confirmation button to complete the task.
+
+Write a Python script `def structure_abstraction(frames: list[Frame])` to identify
+all element/frame-level interactables using these tools:
+
+        Frame.get_element(position: Literal[up, down, left, right], details: str) -> Element:
+                Get one specific element by its relative position in the frame and its detailed visual description.
+                Elements can be marked as interactables.
+                position: where is the element
+                details: color, shape, and visual features of the element
+
+        Frame.split(rows: int, columns: int) -> list[Frame]:
+                Split the entire frame into SELECTABLE subframes.
+
+        Frame.grid(tiles: int) -> list[list[Element]]:
+                Convert the frame into multiple SWAPPABLE tile elements.
+                tiles: total column * row cells.
+
+        Frame.set_frame_as(interactable: str) -> None:
+                POINTABLE: You can point to specific thing(s) in a 2D area as an answer
+                DRAWABLE: You can draw trajectories from A to B on a frame as an answer
+                INPUTTABLE: You can type a text answer in this input box as an answer
+                SELECTABLE: You can click to toggle this frame as an answer choice
+                NEXT: You can click this frame to submit/skip the task
+
+        Element.set_element_as(interactable: str) -> None:
+                DRAGGABLE: Can be freely moved anywhere
+                SWAPPABLE: Can manually exchange places with another SWAPPABLE
+                SLIDEABLE_X: Can be dragged along a horizontal track
+                SLIDEABLE_Y: Can be dragged along a vertical track
+                INPUTTABLE: You can type a text answer in this input box as an answer
+                CLICKABLE: UI button that can be clicked to transition a frame or cycle through choices
+                NEXT: UI button that can be clicked to submit/skip the task
+
+## Guidelines
+1. Use NEXT only when a submit or skip button (either text or icon) is present. If neither is found, omit NEXT.
+2. Ensure there is either zero or one NEXT, while maintaining exactly one other interactable type.
+3. Treat the dependent frame in a relationship as non-interactable.
+4. Prioritize extracting all interactables over solving the task.
+5. Choose either interactable frames or elements, but stick to one type for consistency.
+6. Ensure that frames are only marked with frame interactable types, and elements are only marked with element interactable types.
+7. When using split() and grid(), remember to mark the subframes/elements as interactables.
+history: 1
+def process(frames: list[Frame]):
+    radiation_icon = frames[1].get_element(position='up', details='radiation symbol icon')
+    radiation_icon.set_element_as('CLICKABLE')
+    padlock_icon = frames[1].get_element(position='left', details='padlock icon')
+    padlock_icon.set_element_as('CLICKABLE')
+    robotic_arm_icon = frames[1].get_element(position='right', details='robotic arm icon')
+    robotic_arm_icon.set_element_as('CLICKABLE')
+    ok_button = frames[2].get_element(position='down', details='blue button with text OK')
+    ok_button.set_element_as('NEXT')
+
+0: 512x768 19 objects, 263.8ms
+Speed: 19.5ms preprocess, 263.8ms inference, 2.0ms postprocess per image at shape (1, 3, 512, 768)
+
+0: 128x768 4 objects, 125.0ms
+Speed: 0.5ms preprocess, 125.0ms inference, 1.3ms postprocess per image at shape (1, 3, 128, 768)
+2026-05-08 12:49:14,461 - INFO -        [Stage 2] Structure Abstraction
+history: 1
+2026-05-08 12:49:19,443 - INFO -        [Stage 3] Solution Composition
+2026-05-08 12:49:19,470 - INFO - Generating script for CAPTCHA (5 out of 26): geetest/iconcrush
+## Objective
+The task image contains 2 frame(s).
+
+First, provide one-sentence visual description of each frame.
+Second, identify the relationships between frames.
+Third, using the information, identify the sequential events and the final visual criteria that leads to solving the task.
+
+Use these Python tools:
+describe(frame_id: int, description: str)
+relate(frame_id1: int, frame_id2: int = None, relationship: str = '')
+objective(description: str)
+
+## Guidelines
+1. The output should be a Python block.
+2. The third step should be generic enough, it should not reveal the answer.
+3. In the third step, all event should begin with atomic verbs like `click`, `slide`, `drag`, `draw` and refer to choices/states rather than objects.
+4. Please describe rectangle boxes with hints (e.g., case sensitivity), instructions, or placeholders as input fields.
+history: 1
+
+describe(frame_id=0, description="A blank screen with the instruction text 'Click and swap to line up three identical items in a row' and a GEETEST logo.")
+describe(frame_id=1, description="A 3x3 grid of various emoji icons.")
+relate(frame_id1=0, frame_id2=1, relationship="The first frame provides the instructions for the puzzle presented in the second frame.")
+objective(description="The goal is to solve the puzzle by performing a sequence of swaps to align three identical emoji icons in a horizontal or vertical row.")
+
+2026-05-08 12:49:36,487 - INFO -        [Stage 1] Objective Identification
+You are given a list of frames, their descriptions, relationships between frames, and the main task objective.
+
+Descriptions:
+Frame 0: A blank screen with the instruction text 'Click and swap to line up three identical items in a row' and a GEETEST logo.
+Frame 1: A 3x3 grid of various emoji icons.
+
+Relations:
+Frame 0 and Frame 1: The first frame provides the instructions for the puzzle presented in the second frame.
+
+Objective:
+The goal is to solve the puzzle by performing a sequence of swaps to align three identical emoji icons in a horizontal or vertical row.
+
+Write a Python script `def structure_abstraction(frames: list[Frame])` to identify
+all element/frame-level interactables using these tools:
+
+        Frame.get_element(position: Literal[up, down, left, right], details: str) -> Element:
+                Get one specific element by its relative position in the frame and its detailed visual description.
+                Elements can be marked as interactables.
+                position: where is the element
+                details: color, shape, and visual features of the element
+
+        Frame.split(rows: int, columns: int) -> list[Frame]:
+                Split the entire frame into SELECTABLE subframes.
+
+        Frame.grid(tiles: int) -> list[list[Element]]:
+                Convert the frame into multiple SWAPPABLE tile elements.
+                tiles: total column * row cells.
+
+        Frame.set_frame_as(interactable: str) -> None:
+                POINTABLE: You can point to specific thing(s) in a 2D area as an answer
+                DRAWABLE: You can draw trajectories from A to B on a frame as an answer
+                INPUTTABLE: You can type a text answer in this input box as an answer
+                SELECTABLE: You can click to toggle this frame as an answer choice
+                NEXT: You can click this frame to submit/skip the task
+
+        Element.set_element_as(interactable: str) -> None:
+                DRAGGABLE: Can be freely moved anywhere
+                SWAPPABLE: Can manually exchange places with another SWAPPABLE
+                SLIDEABLE_X: Can be dragged along a horizontal track
+                SLIDEABLE_Y: Can be dragged along a vertical track
+                INPUTTABLE: You can type a text answer in this input box as an answer
+                CLICKABLE: UI button that can be clicked to transition a frame or cycle through choices
+                NEXT: UI button that can be clicked to submit/skip the task
+
+## Guidelines
+1. Use NEXT only when a submit or skip button (either text or icon) is present. If neither is found, omit NEXT.
+2. Ensure there is either zero or one NEXT, while maintaining exactly one other interactable type.
+3. Treat the dependent frame in a relationship as non-interactable.
+4. Prioritize extracting all interactables over solving the task.
+5. Choose either interactable frames or elements, but stick to one type for consistency.
+6. Ensure that frames are only marked with frame interactable types, and elements are only marked with element interactable types.
+7. When using split() and grid(), remember to mark the subframes/elements as interactables.
+history: 1
+def process(frames: list[Frame]):
+    """
+    Identifies interactables for the emoji swap puzzle.
+    Frame 0 is the instruction frame (non-interactable).
+    Frame 1 contains the 3x3 grid of swappable emoji elements.
+    """
+    grid_elements = frames[1].grid(9)
+    for row in grid_elements:
+        for element in row:
+            element.set_element_as('SWAPPABLE')
+2026-05-08 12:49:56,064 - INFO -        [Stage 2] Structure Abstraction
+history: 1
+2026-05-08 12:50:14,895 - INFO -        [Stage 3] Solution Composition
+2026-05-08 12:50:14,952 - INFO - Generating script for CAPTCHA (6 out of 26): baidu
+## Objective
+The task image contains 3 frame(s).
+
+First, provide one-sentence visual description of each frame.
+Second, identify the relationships between frames.
+Third, using the information, identify the sequential events and the final visual criteria that leads to solving the task.
+
+Use these Python tools:
+describe(frame_id: int, description: str)
+relate(frame_id1: int, frame_id2: int = None, relationship: str = '')
+objective(description: str)
+
+## Guidelines
+1. The output should be a Python block.
+2. The third step should be generic enough, it should not reveal the answer.
+3. In the third step, all event should begin with atomic verbs like `click`, `slide`, `drag`, `draw` and refer to choices/states rather than objects.
+4. Please describe rectangle boxes with hints (e.g., case sensitivity), instructions, or placeholders as input fields.
+history: 1
+
+describe(0, "The frame displays a Baidu CAPTCHA prompt asking the user to rotate an image upright.")
+describe(1, "The frame shows a circular image of a building that is currently tilted.")
+describe(2, "The frame shows a slider control with an arrow icon and the instruction to drag it to rotate the image.")
+
+relate(0, 1, "The prompt in frame 0 refers to the image shown in frame 1.")
+relate(1, 2, "The slider in frame 2 is the tool used to manipulate the orientation of the image in frame 1.")
+
+objective("The goal is to align the tilted image to its correct upright orientation using the provided slider control.")
+
+2026-05-08 12:50:20,295 - INFO -        [Stage 1] Objective Identification
+You are given a list of frames, their descriptions, relationships between frames, and the main task objective.
+
+Descriptions:
+Frame 0: The frame displays a Baidu CAPTCHA prompt asking the user to rotate an image upright.
+Frame 1: The frame shows a circular image of a building that is currently tilted.
+Frame 2: The frame shows a slider control with an arrow icon and the instruction to drag it to rotate the image.
+
+Relations:
+Frame 0 and Frame 1: The prompt in frame 0 refers to the image shown in frame 1.
+Frame 1 and Frame 2: The slider in frame 2 is the tool used to manipulate the orientation of the image in frame 1.
+
+Objective:
+The goal is to align the tilted image to its correct upright orientation using the provided slider control.
+
+Write a Python script `def structure_abstraction(frames: list[Frame])` to identify
+all element/frame-level interactables using these tools:
+
+        Frame.get_element(position: Literal[up, down, left, right], details: str) -> Element:
+                Get one specific element by its relative position in the frame and its detailed visual description.
+                Elements can be marked as interactables.
+                position: where is the element
+                details: color, shape, and visual features of the element
+
+        Frame.split(rows: int, columns: int) -> list[Frame]:
+                Split the entire frame into SELECTABLE subframes.
+
+        Frame.grid(tiles: int) -> list[list[Element]]:
+                Convert the frame into multiple SWAPPABLE tile elements.
+                tiles: total column * row cells.
+
+        Frame.set_frame_as(interactable: str) -> None:
+                POINTABLE: You can point to specific thing(s) in a 2D area as an answer
+                DRAWABLE: You can draw trajectories from A to B on a frame as an answer
+                INPUTTABLE: You can type a text answer in this input box as an answer
+                SELECTABLE: You can click to toggle this frame as an answer choice
+                NEXT: You can click this frame to submit/skip the task
+
+        Element.set_element_as(interactable: str) -> None:
+                DRAGGABLE: Can be freely moved anywhere
+                SWAPPABLE: Can manually exchange places with another SWAPPABLE
+                SLIDEABLE_X: Can be dragged along a horizontal track
+                SLIDEABLE_Y: Can be dragged along a vertical track
+                INPUTTABLE: You can type a text answer in this input box as an answer
+                CLICKABLE: UI button that can be clicked to transition a frame or cycle through choices
+                NEXT: UI button that can be clicked to submit/skip the task
+
+## Guidelines
+1. Use NEXT only when a submit or skip button (either text or icon) is present. If neither is found, omit NEXT.
+2. Ensure there is either zero or one NEXT, while maintaining exactly one other interactable type.
+3. Treat the dependent frame in a relationship as non-interactable.
+4. Prioritize extracting all interactables over solving the task.
+5. Choose either interactable frames or elements, but stick to one type for consistency.
+6. Ensure that frames are only marked with frame interactable types, and elements are only marked with element interactable types.
+7. When using split() and grid(), remember to mark the subframes/elements as interactables.
+history: 1
+def process(frames: list[Frame]):
+    """
+    Identifies interactables for the Baidu CAPTCHA rotation task.
+
+    Frame 0: Prompt (Non-interactable)
+    Frame 1: Tilted image (Dependent on slider, Non-interactable)
+    Frame 2: Slider control (Interactable)
+    """
+    slider_element = frames[2].get_element(position='left', details='blue circular button with a white right-pointing arrow icon')
+    slider_element.set_element_as('SLIDEABLE_X')
+
+0: 160x768 6 objects, 162.7ms
+Speed: 25.0ms preprocess, 162.7ms inference, 1.7ms postprocess per image at shape (1, 3, 160, 768)
+2026-05-08 12:50:30,091 - INFO -        [Stage 2] Structure Abstraction
+history: 1
+2026-05-08 12:50:50,155 - INFO -        [Stage 3] Solution Composition
+2026-05-08 12:50:50,183 - INFO - Generating script for CAPTCHA (7 out of 26): hcaptcha
+## Objective
+The task image contains 11 frame(s).
+
+First, provide one-sentence visual description of each frame.
+Second, identify the relationships between frames.
+Third, using the information, identify the sequential events and the final visual criteria that leads to solving the task.
+
+Use these Python tools:
+describe(frame_id: int, description: str)
+relate(frame_id1: int, frame_id2: int = None, relationship: str = '')
+objective(description: str)
+
+## Guidelines
+1. The output should be a Python block.
+2. The third step should be generic enough, it should not reveal the answer.
+3. In the third step, all event should begin with atomic verbs like `click`, `slide`, `drag`, `draw` and refer to choices/states rather than objects.
+4. Please describe rectangle boxes with hints (e.g., case sensitivity), instructions, or placeholders as input fields.
+history: 1
+
+describe(0, "A screen showing a 'Skip' button and a hand icon.")
+describe(1, "An instruction screen asking to click on objects more expensive than a television.")
+describe(2, "An airplane on a runway.")
+describe(3, "A wooden table with a small green object on it.")
+describe(4, "A close-up of fruit hanging on a tree branch.")
+describe(5, "A close-up of a pomegranate hanging on a tree branch.")
+describe(6, "A wooden table with a small green object on it.")
+describe(7, "An airplane flying in the sky.")
+describe(8, "A pair of eyeglasses resting on a surface.")
+describe(9, "A pair of sunglasses.")
+describe(10, "An airplane flying in the sky.")
+
+relate(0, 1, "The initial screen transitions to the instruction screen.")
+relate(1, 2, "The instruction screen precedes the display of objects.")
+relate(2, 3, "The objects are presented sequentially for evaluation.")
+relate(3, 4, "The objects are presented sequentially for evaluation.")
+relate(4, 5, "The objects are presented sequentially for evaluation.")
+relate(5, 6, "The objects are presented sequentially for evaluation.")
+relate(6, 7, "The objects are presented sequentially for evaluation.")
+relate(7, 8, "The objects are presented sequentially for evaluation.")
+relate(8, 9, "The objects are presented sequentially for evaluation.")
+relate(9, 10, "The objects are presented sequentially for evaluation.")
+
+objective("Identify and click on all objects that have a higher market value than a standard television.")
+
+# Sequential events:
+# 1. click on the instruction screen to begin.
+# 2. click on each image that represents an item with a higher cost than a television.
+# 3. click on the 'Skip' button if no such items are present in the current view.
+
+2026-05-08 12:51:11,830 - INFO -        [Stage 1] Objective Identification
+You are given a list of frames, their descriptions, relationships between frames, and the main task objective.
+
+Descriptions:
+Frame 0: A screen showing a 'Skip' button and a hand icon.
+Frame 1: An instruction screen asking to click on objects more expensive than a television.
+Frame 2: An airplane on a runway.
+Frame 3: A wooden table with a small green object on it.
+Frame 4: A close-up of fruit hanging on a tree branch.
+Frame 5: A close-up of a pomegranate hanging on a tree branch.
+Frame 6: A wooden table with a small green object on it.
+Frame 7: An airplane flying in the sky.
+Frame 8: A pair of eyeglasses resting on a surface.
+Frame 9: A pair of sunglasses.
+Frame 10: An airplane flying in the sky.
+
+Relations:
+Frame 0 and Frame 1: The initial screen transitions to the instruction screen.
+Frame 1 and Frame 2: The instruction screen precedes the display of objects.
+Frame 2 and Frame 3: The objects are presented sequentially for evaluation.
+Frame 3 and Frame 4: The objects are presented sequentially for evaluation.
+Frame 4 and Frame 5: The objects are presented sequentially for evaluation.
+Frame 5 and Frame 6: The objects are presented sequentially for evaluation.
+Frame 6 and Frame 7: The objects are presented sequentially for evaluation.
+Frame 7 and Frame 8: The objects are presented sequentially for evaluation.
+Frame 8 and Frame 9: The objects are presented sequentially for evaluation.
+Frame 9 and Frame 10: The objects are presented sequentially for evaluation.
+
+Objective:
+Identify and click on all objects that have a higher market value than a standard television.
+
+Write a Python script `def structure_abstraction(frames: list[Frame])` to identify
+all element/frame-level interactables using these tools:
+
+        Frame.get_element(position: Literal[up, down, left, right], details: str) -> Element:
+                Get one specific element by its relative position in the frame and its detailed visual description.
+                Elements can be marked as interactables.
+                position: where is the element
+                details: color, shape, and visual features of the element
+
+        Frame.split(rows: int, columns: int) -> list[Frame]:
+                Split the entire frame into SELECTABLE subframes.
+
+        Frame.grid(tiles: int) -> list[list[Element]]:
+                Convert the frame into multiple SWAPPABLE tile elements.
+                tiles: total column * row cells.
+
+        Frame.set_frame_as(interactable: str) -> None:
+                POINTABLE: You can point to specific thing(s) in a 2D area as an answer
+                DRAWABLE: You can draw trajectories from A to B on a frame as an answer
+                INPUTTABLE: You can type a text answer in this input box as an answer
+                SELECTABLE: You can click to toggle this frame as an answer choice
+                NEXT: You can click this frame to submit/skip the task
+
+        Element.set_element_as(interactable: str) -> None:
+                DRAGGABLE: Can be freely moved anywhere
+                SWAPPABLE: Can manually exchange places with another SWAPPABLE
+                SLIDEABLE_X: Can be dragged along a horizontal track
+                SLIDEABLE_Y: Can be dragged along a vertical track
+                INPUTTABLE: You can type a text answer in this input box as an answer
+                CLICKABLE: UI button that can be clicked to transition a frame or cycle through choices
+                NEXT: UI button that can be clicked to submit/skip the task
+
+## Guidelines
+1. Use NEXT only when a submit or skip button (either text or icon) is present. If neither is found, omit NEXT.
+2. Ensure there is either zero or one NEXT, while maintaining exactly one other interactable type.
+3. Treat the dependent frame in a relationship as non-interactable.
+4. Prioritize extracting all interactables over solving the task.
+5. Choose either interactable frames or elements, but stick to one type for consistency.
+6. Ensure that frames are only marked with frame interactable types, and elements are only marked with element interactable types.
+7. When using split() and grid(), remember to mark the subframes/elements as interactables.
+history: 1
+def process(frames: list[Frame]):
+    frames[0].get_element(position='right', details='grey rectangular button with text Skip').set_element_as('NEXT')
+    frames[1].set_frame_as('SELECTABLE')
+    frames[2].set_frame_as('SELECTABLE')
+    frames[7].set_frame_as('SELECTABLE')
+    frames[10].set_frame_as('SELECTABLE')
+
+0: 160x768 6 objects, 109.6ms
+Speed: 16.0ms preprocess, 109.6ms inference, 1.4ms postprocess per image at shape (1, 3, 160, 768)
+2026-05-08 12:51:16,303 - INFO -        [Stage 2] Structure Abstraction
+history: 1
+2026-05-08 12:51:33,874 - INFO -        [Stage 3] Solution Composition
+2026-05-08 12:51:33,918 - INFO - Generating script for CAPTCHA (8 out of 26): botdetect
+## Objective
+The task image contains 4 frame(s).
+
+First, provide one-sentence visual description of each frame.
+Second, identify the relationships between frames.
+Third, using the information, identify the sequential events and the final visual criteria that leads to solving the task.
+
+Use these Python tools:
+describe(frame_id: int, description: str)
+relate(frame_id1: int, frame_id2: int = None, relationship: str = '')
+objective(description: str)
+
+## Guidelines
+1. The output should be a Python block.
+2. The third step should be generic enough, it should not reveal the answer.
+3. In the third step, all event should begin with atomic verbs like `click`, `slide`, `drag`, `draw` and refer to choices/states rather than objects.
+4. Please describe rectangle boxes with hints (e.g., case sensitivity), instructions, or placeholders as input fields.
+history: 1
+
+describe(0, "An empty text input field for user entry.")
+describe(1, "A distorted text string 'YBTMN' overlaid with horizontal lines.")
+describe(2, "Instruction text asking to retype the characters from the picture.")
+describe(3, "A button labeled 'Validate' for submission.")
+
+relate(0, 1, "The input field is where the characters from the distorted image should be typed.")
+relate(2, 1, "The instruction text refers to the characters shown in the distorted image.")
+relate(0, 3, "The input field and the validate button are part of the same form submission process.")
+
+objective("Identify the characters in the distorted image and submit them through the input field to complete the validation process.")
+
+# Sequential events:
+# 1. Observe the characters in the distorted image.
+# 2. Click the input field to focus.
+# 3. Type the identified characters into the input field.
+# 4. Click the 'Validate' button to submit the entry.
+
+2026-05-08 12:51:38,329 - INFO -        [Stage 1] Objective Identification
+You are given a list of frames, their descriptions, relationships between frames, and the main task objective.
+
+Descriptions:
+Frame 0: An empty text input field for user entry.
+Frame 1: A distorted text string 'YBTMN' overlaid with horizontal lines.
+Frame 2: Instruction text asking to retype the characters from the picture.
+Frame 3: A button labeled 'Validate' for submission.
+
+Relations:
+Frame 0 and Frame 1: The input field is where the characters from the distorted image should be typed.
+Frame 0 and Frame 3: The input field and the validate button are part of the same form submission process.
+Frame 2 and Frame 1: The instruction text refers to the characters shown in the distorted image.
+
+Objective:
+Identify the characters in the distorted image and submit them through the input field to complete the validation process.
+
+Write a Python script `def structure_abstraction(frames: list[Frame])` to identify
+all element/frame-level interactables using these tools:
+
+        Frame.get_element(position: Literal[up, down, left, right], details: str) -> Element:
+                Get one specific element by its relative position in the frame and its detailed visual description.
+                Elements can be marked as interactables.
+                position: where is the element
+                details: color, shape, and visual features of the element
+
+        Frame.split(rows: int, columns: int) -> list[Frame]:
+                Split the entire frame into SELECTABLE subframes.
+
+        Frame.grid(tiles: int) -> list[list[Element]]:
+                Convert the frame into multiple SWAPPABLE tile elements.
+                tiles: total column * row cells.
+
+        Frame.set_frame_as(interactable: str) -> None:
+                POINTABLE: You can point to specific thing(s) in a 2D area as an answer
+                DRAWABLE: You can draw trajectories from A to B on a frame as an answer
+                INPUTTABLE: You can type a text answer in this input box as an answer
+                SELECTABLE: You can click to toggle this frame as an answer choice
+                NEXT: You can click this frame to submit/skip the task
+
+        Element.set_element_as(interactable: str) -> None:
+                DRAGGABLE: Can be freely moved anywhere
+                SWAPPABLE: Can manually exchange places with another SWAPPABLE
+                SLIDEABLE_X: Can be dragged along a horizontal track
+                SLIDEABLE_Y: Can be dragged along a vertical track
+                INPUTTABLE: You can type a text answer in this input box as an answer
+                CLICKABLE: UI button that can be clicked to transition a frame or cycle through choices
+                NEXT: UI button that can be clicked to submit/skip the task
+
+## Guidelines
+1. Use NEXT only when a submit or skip button (either text or icon) is present. If neither is found, omit NEXT.
+2. Ensure there is either zero or one NEXT, while maintaining exactly one other interactable type.
+3. Treat the dependent frame in a relationship as non-interactable.
+4. Prioritize extracting all interactables over solving the task.
+5. Choose either interactable frames or elements, but stick to one type for consistency.
+6. Ensure that frames are only marked with frame interactable types, and elements are only marked with element interactable types.
+7. When using split() and grid(), remember to mark the subframes/elements as interactables.
+history: 1
+def process(frames: list[Frame]):
+    input_field = frames[0].get_element(position='down', details='rectangular white text input field')
+    input_field.set_element_as('INPUTTABLE')
+    validate_button = frames[3].get_element(position='down', details="rectangular button with text 'Validate'")
+    validate_button.set_element_as('NEXT')
+
+0: 320x768 2 objects, 223.9ms
+Speed: 35.6ms preprocess, 223.9ms inference, 1.3ms postprocess per image at shape (1, 3, 320, 768)
+
+0: 256x768 1 object, 194.5ms
+Speed: 1.1ms preprocess, 194.5ms inference, 1.2ms postprocess per image at shape (1, 3, 256, 768)
+2026-05-08 12:51:59,617 - INFO -        [Stage 2] Structure Abstraction
+history: 1
+2026-05-08 12:52:10,451 - INFO -        [Stage 3] Solution Composition
+2026-05-08 12:52:10,479 - INFO - Generating script for CAPTCHA (9 out of 26): arkose/multichoice/square_icon
+## Objective
+The task image contains 2 frame(s).
+
+First, provide one-sentence visual description of each frame.
+Second, identify the relationships between frames.
+Third, using the information, identify the sequential events and the final visual criteria that leads to solving the task.
+
+Use these Python tools:
+describe(frame_id: int, description: str)
+relate(frame_id1: int, frame_id2: int = None, relationship: str = '')
+objective(description: str)
+
+## Guidelines
+1. The output should be a Python block.
+2. The third step should be generic enough, it should not reveal the answer.
+3. In the third step, all event should begin with atomic verbs like `click`, `slide`, `drag`, `draw` and refer to choices/states rather than objects.
+4. Please describe rectangle boxes with hints (e.g., case sensitivity), instructions, or placeholders as input fields.
+history: 1
+
+describe(frame_id=0, description="The frame displays the instruction text 'Pick one square that shows two identical objects (1 of 1)' above a blank white area.")
+describe(frame_id=1, description="The frame contains a 2x3 grid of squares, each displaying two white icon-like objects against different background textures.")
+relate(frame_id1=0, frame_id2=1, relationship="The first frame provides the instruction for the task presented in the second frame.")
+objective(description="Identify the square in the grid that contains two identical objects and select it.")
+
+2026-05-08 12:52:23,388 - INFO -        [Stage 1] Objective Identification
+You are given a list of frames, their descriptions, relationships between frames, and the main task objective.
+
+Descriptions:
+Frame 0: The frame displays the instruction text 'Pick one square that shows two identical objects (1 of 1)' above a blank white area.
+Frame 1: The frame contains a 2x3 grid of squares, each displaying two white icon-like objects against different background textures.
+
+Relations:
+Frame 0 and Frame 1: The first frame provides the instruction for the task presented in the second frame.
+
+Objective:
+Identify the square in the grid that contains two identical objects and select it.
+
+Write a Python script `def structure_abstraction(frames: list[Frame])` to identify
+all element/frame-level interactables using these tools:
+
+        Frame.get_element(position: Literal[up, down, left, right], details: str) -> Element:
+                Get one specific element by its relative position in the frame and its detailed visual description.
+                Elements can be marked as interactables.
+                position: where is the element
+                details: color, shape, and visual features of the element
+
+        Frame.split(rows: int, columns: int) -> list[Frame]:
+                Split the entire frame into SELECTABLE subframes.
+
+        Frame.grid(tiles: int) -> list[list[Element]]:
+                Convert the frame into multiple SWAPPABLE tile elements.
+                tiles: total column * row cells.
+
+        Frame.set_frame_as(interactable: str) -> None:
+                POINTABLE: You can point to specific thing(s) in a 2D area as an answer
+                DRAWABLE: You can draw trajectories from A to B on a frame as an answer
+                INPUTTABLE: You can type a text answer in this input box as an answer
+                SELECTABLE: You can click to toggle this frame as an answer choice
+                NEXT: You can click this frame to submit/skip the task
+
+        Element.set_element_as(interactable: str) -> None:
+                DRAGGABLE: Can be freely moved anywhere
+                SWAPPABLE: Can manually exchange places with another SWAPPABLE
+                SLIDEABLE_X: Can be dragged along a horizontal track
+                SLIDEABLE_Y: Can be dragged along a vertical track
+                INPUTTABLE: You can type a text answer in this input box as an answer
+                CLICKABLE: UI button that can be clicked to transition a frame or cycle through choices
+                NEXT: UI button that can be clicked to submit/skip the task
+
+## Guidelines
+1. Use NEXT only when a submit or skip button (either text or icon) is present. If neither is found, omit NEXT.
+2. Ensure there is either zero or one NEXT, while maintaining exactly one other interactable type.
+3. Treat the dependent frame in a relationship as non-interactable.
+4. Prioritize extracting all interactables over solving the task.
+5. Choose either interactable frames or elements, but stick to one type for consistency.
+6. Ensure that frames are only marked with frame interactable types, and elements are only marked with element interactable types.
+7. When using split() and grid(), remember to mark the subframes/elements as interactables.
+history: 1
+def process(frames: list[Frame]):
+    """
+    Identifies interactables in the provided frames.
+    Frame 0 is the instruction frame.
+    Frame 1 contains the grid of objects to select from.
+    """
+    subframes = frames[1].split(rows=2, columns=3)
+    for subframe in subframes:
+        subframe.set_frame_as('SELECTABLE')
+2026-05-08 12:52:26,031 - INFO -        [Stage 2] Structure Abstraction
+history: 1
+2026-05-08 12:52:43,717 - INFO -        [Stage 3] Solution Composition
+2026-05-08 12:52:43,753 - INFO - Generating script for CAPTCHA (10 out of 26): arkose/multichoice/galaxies
+## Objective
+The task image contains 2 frame(s).
+
+First, provide one-sentence visual description of each frame.
+Second, identify the relationships between frames.
+Third, using the information, identify the sequential events and the final visual criteria that leads to solving the task.
+
+Use these Python tools:
+describe(frame_id: int, description: str)
+relate(frame_id1: int, frame_id2: int = None, relationship: str = '')
+objective(description: str)
+
+## Guidelines
+1. The output should be a Python block.
+2. The third step should be generic enough, it should not reveal the answer.
+3. In the third step, all event should begin with atomic verbs like `click`, `slide`, `drag`, `draw` and refer to choices/states rather than objects.
+4. Please describe rectangle boxes with hints (e.g., case sensitivity), instructions, or placeholders as input fields.
+history: 1
+
+describe(frame_id=0, description="The frame displays the instruction 'Pick the spiral galaxy (1 of 1)' at the top.")
+describe(frame_id=1, description="The frame shows a grid of six images of various celestial objects, including one distinct spiral galaxy.")
+relate(frame_id1=0, frame_id2=1, relationship="The first frame provides the instruction for the task, while the second frame provides the visual options to choose from.")
+objective(description="Identify and select the image that depicts a spiral galaxy from the provided grid of celestial objects.")
+
+2026-05-08 12:53:03,437 - INFO -        [Stage 1] Objective Identification
+You are given a list of frames, their descriptions, relationships between frames, and the main task objective.
+
+Descriptions:
+Frame 0: The frame displays the instruction 'Pick the spiral galaxy (1 of 1)' at the top.
+Frame 1: The frame shows a grid of six images of various celestial objects, including one distinct spiral galaxy.
+
+Relations:
+Frame 0 and Frame 1: The first frame provides the instruction for the task, while the second frame provides the visual options to choose from.
+
+Objective:
+Identify and select the image that depicts a spiral galaxy from the provided grid of celestial objects.
+
+Write a Python script `def structure_abstraction(frames: list[Frame])` to identify
+all element/frame-level interactables using these tools:
+
+        Frame.get_element(position: Literal[up, down, left, right], details: str) -> Element:
+                Get one specific element by its relative position in the frame and its detailed visual description.
+                Elements can be marked as interactables.
+                position: where is the element
+                details: color, shape, and visual features of the element
+
+        Frame.split(rows: int, columns: int) -> list[Frame]:
+                Split the entire frame into SELECTABLE subframes.
+
+        Frame.grid(tiles: int) -> list[list[Element]]:
+                Convert the frame into multiple SWAPPABLE tile elements.
+                tiles: total column * row cells.
+
+        Frame.set_frame_as(interactable: str) -> None:
+                POINTABLE: You can point to specific thing(s) in a 2D area as an answer
+                DRAWABLE: You can draw trajectories from A to B on a frame as an answer
+                INPUTTABLE: You can type a text answer in this input box as an answer
+                SELECTABLE: You can click to toggle this frame as an answer choice
+                NEXT: You can click this frame to submit/skip the task
+
+        Element.set_element_as(interactable: str) -> None:
+                DRAGGABLE: Can be freely moved anywhere
+                SWAPPABLE: Can manually exchange places with another SWAPPABLE
+                SLIDEABLE_X: Can be dragged along a horizontal track
+                SLIDEABLE_Y: Can be dragged along a vertical track
+                INPUTTABLE: You can type a text answer in this input box as an answer
+                CLICKABLE: UI button that can be clicked to transition a frame or cycle through choices
+                NEXT: UI button that can be clicked to submit/skip the task
+
+## Guidelines
+1. Use NEXT only when a submit or skip button (either text or icon) is present. If neither is found, omit NEXT.
+2. Ensure there is either zero or one NEXT, while maintaining exactly one other interactable type.
+3. Treat the dependent frame in a relationship as non-interactable.
+4. Prioritize extracting all interactables over solving the task.
+5. Choose either interactable frames or elements, but stick to one type for consistency.
+6. Ensure that frames are only marked with frame interactable types, and elements are only marked with element interactable types.
+7. When using split() and grid(), remember to mark the subframes/elements as interactables.
+history: 1
+def process(frames: list[Frame]):
+    celestial_objects = frames[1].grid(tiles=6)
+    for row in celestial_objects:
+        for element in row:
+            element.set_element_as('CLICKABLE')
+2026-05-08 12:53:05,558 - INFO -        [Stage 2] Structure Abstraction
+history: 1
+2026-05-08 12:53:19,186 - INFO -        [Stage 3] Solution Composition
+2026-05-08 12:53:19,229 - INFO - Generating script for CAPTCHA (11 out of 26): arkose/multichoice/dice_pair
+## Objective
+The task image contains 2 frame(s).
+
+First, provide one-sentence visual description of each frame.
+Second, identify the relationships between frames.
+Third, using the information, identify the sequential events and the final visual criteria that leads to solving the task.
+
+Use these Python tools:
+describe(frame_id: int, description: str)
+relate(frame_id1: int, frame_id2: int = None, relationship: str = '')
+objective(description: str)
+
+## Guidelines
+1. The output should be a Python block.
+2. The third step should be generic enough, it should not reveal the answer.
+3. In the third step, all event should begin with atomic verbs like `click`, `slide`, `drag`, `draw` and refer to choices/states rather than objects.
+4. Please describe rectangle boxes with hints (e.g., case sensitivity), instructions, or placeholders as input fields.
+history: 1
+
+describe(frame_id=0, description="The frame displays the instruction text: 'Pick the dice pair with the same icon facing up (1 of 1)'.")
+describe(frame_id=1, description="The frame shows a grid of six pairs of dice, each pair consisting of one blue die and one black die with various icons on their top faces.")
+relate(frame_id1=0, frame_id2=1, relationship="The first frame provides the instruction for the task presented in the second frame.")
+objective(description="Identify the pair of dice in the grid where the top-facing icons on both the blue and black dice are identical.")
+
+2026-05-08 12:53:23,784 - INFO -        [Stage 1] Objective Identification
+You are given a list of frames, their descriptions, relationships between frames, and the main task objective.
+
+Descriptions:
+Frame 0: The frame displays the instruction text: 'Pick the dice pair with the same icon facing up (1 of 1)'.
+Frame 1: The frame shows a grid of six pairs of dice, each pair consisting of one blue die and one black die with various icons on their top faces.
+
+Relations:
+Frame 0 and Frame 1: The first frame provides the instruction for the task presented in the second frame.
+
+Objective:
+Identify the pair of dice in the grid where the top-facing icons on both the blue and black dice are identical.
+
+Write a Python script `def structure_abstraction(frames: list[Frame])` to identify
+all element/frame-level interactables using these tools:
+
+        Frame.get_element(position: Literal[up, down, left, right], details: str) -> Element:
+                Get one specific element by its relative position in the frame and its detailed visual description.
+                Elements can be marked as interactables.
+                position: where is the element
+                details: color, shape, and visual features of the element
+
+        Frame.split(rows: int, columns: int) -> list[Frame]:
+                Split the entire frame into SELECTABLE subframes.
+
+        Frame.grid(tiles: int) -> list[list[Element]]:
+                Convert the frame into multiple SWAPPABLE tile elements.
+                tiles: total column * row cells.
+
+        Frame.set_frame_as(interactable: str) -> None:
+                POINTABLE: You can point to specific thing(s) in a 2D area as an answer
+                DRAWABLE: You can draw trajectories from A to B on a frame as an answer
+                INPUTTABLE: You can type a text answer in this input box as an answer
+                SELECTABLE: You can click to toggle this frame as an answer choice
+                NEXT: You can click this frame to submit/skip the task
+
+        Element.set_element_as(interactable: str) -> None:
+                DRAGGABLE: Can be freely moved anywhere
+                SWAPPABLE: Can manually exchange places with another SWAPPABLE
+                SLIDEABLE_X: Can be dragged along a horizontal track
+                SLIDEABLE_Y: Can be dragged along a vertical track
+                INPUTTABLE: You can type a text answer in this input box as an answer
+                CLICKABLE: UI button that can be clicked to transition a frame or cycle through choices
+                NEXT: UI button that can be clicked to submit/skip the task
+
+## Guidelines
+1. Use NEXT only when a submit or skip button (either text or icon) is present. If neither is found, omit NEXT.
+2. Ensure there is either zero or one NEXT, while maintaining exactly one other interactable type.
+3. Treat the dependent frame in a relationship as non-interactable.
+4. Prioritize extracting all interactables over solving the task.
+5. Choose either interactable frames or elements, but stick to one type for consistency.
+6. Ensure that frames are only marked with frame interactable types, and elements are only marked with element interactable types.
+7. When using split() and grid(), remember to mark the subframes/elements as interactables.
+history: 1
+def process(frames: list[Frame]):
+    """
+    Identifies the dice pairs in the grid as interactable elements.
+    Frame 0 is the instruction, Frame 1 contains the task elements.
+    """
+    dice_grid = frames[1].grid(6)
+    for row in dice_grid:
+        for element in row:
+            element.set_element_as('CLICKABLE')
+2026-05-08 12:53:34,864 - INFO -        [Stage 2] Structure Abstraction
+history: 1
+2026-05-08 12:53:49,128 - INFO -        [Stage 3] Solution Composition
+2026-05-08 12:53:49,170 - INFO - Generating script for CAPTCHA (12 out of 26): arkose/multichoice/hand_number
+## Objective
+The task image contains 2 frame(s).
+
+First, provide one-sentence visual description of each frame.
+Second, identify the relationships between frames.
+Third, using the information, identify the sequential events and the final visual criteria that leads to solving the task.
+
+Use these Python tools:
+describe(frame_id: int, description: str)
+relate(frame_id1: int, frame_id2: int = None, relationship: str = '')
+objective(description: str)
+
+## Guidelines
+1. The output should be a Python block.
+2. The third step should be generic enough, it should not reveal the answer.
+3. In the third step, all event should begin with atomic verbs like `click`, `slide`, `drag`, `draw` and refer to choices/states rather than objects.
+4. Please describe rectangle boxes with hints (e.g., case sensitivity), instructions, or placeholders as input fields.
+history: 1
+
+describe(frame_id=0, description="The frame displays the instruction text: 'Pick the image where the total fingers add up to 4 (1 of 1)'.")
+describe(frame_id=1, description="The frame displays a grid of six images, each showing two hands with various fingers extended.")
+relate(frame_id1=0, frame_id2=1, relationship="The first frame provides the instruction for selecting the correct image from the grid presented in the second frame.")
+objective(description="Identify the specific image in the grid where the sum of the extended fingers on the two hands equals four, and click on that image.")
+
+2026-05-08 12:53:52,955 - INFO -        [Stage 1] Objective Identification
+You are given a list of frames, their descriptions, relationships between frames, and the main task objective.
+
+Descriptions:
+Frame 0: The frame displays the instruction text: 'Pick the image where the total fingers add up to 4 (1 of 1)'.
+Frame 1: The frame displays a grid of six images, each showing two hands with various fingers extended.
+
+Relations:
+Frame 0 and Frame 1: The first frame provides the instruction for selecting the correct image from the grid presented in the second frame.
+
+Objective:
+Identify the specific image in the grid where the sum of the extended fingers on the two hands equals four, and click on that image.
+
+Write a Python script `def structure_abstraction(frames: list[Frame])` to identify
+all element/frame-level interactables using these tools:
+
+        Frame.get_element(position: Literal[up, down, left, right], details: str) -> Element:
+                Get one specific element by its relative position in the frame and its detailed visual description.
+                Elements can be marked as interactables.
+                position: where is the element
+                details: color, shape, and visual features of the element
+
+        Frame.split(rows: int, columns: int) -> list[Frame]:
+                Split the entire frame into SELECTABLE subframes.
+
+        Frame.grid(tiles: int) -> list[list[Element]]:
+                Convert the frame into multiple SWAPPABLE tile elements.
+                tiles: total column * row cells.
+
+        Frame.set_frame_as(interactable: str) -> None:
+                POINTABLE: You can point to specific thing(s) in a 2D area as an answer
+                DRAWABLE: You can draw trajectories from A to B on a frame as an answer
+                INPUTTABLE: You can type a text answer in this input box as an answer
+                SELECTABLE: You can click to toggle this frame as an answer choice
+                NEXT: You can click this frame to submit/skip the task
+
+        Element.set_element_as(interactable: str) -> None:
+                DRAGGABLE: Can be freely moved anywhere
+                SWAPPABLE: Can manually exchange places with another SWAPPABLE
+                SLIDEABLE_X: Can be dragged along a horizontal track
+                SLIDEABLE_Y: Can be dragged along a vertical track
+                INPUTTABLE: You can type a text answer in this input box as an answer
+                CLICKABLE: UI button that can be clicked to transition a frame or cycle through choices
+                NEXT: UI button that can be clicked to submit/skip the task
+
+## Guidelines
+1. Use NEXT only when a submit or skip button (either text or icon) is present. If neither is found, omit NEXT.
+2. Ensure there is either zero or one NEXT, while maintaining exactly one other interactable type.
+3. Treat the dependent frame in a relationship as non-interactable.
+4. Prioritize extracting all interactables over solving the task.
+5. Choose either interactable frames or elements, but stick to one type for consistency.
+6. Ensure that frames are only marked with frame interactable types, and elements are only marked with element interactable types.
+7. When using split() and grid(), remember to mark the subframes/elements as interactables.
+history: 1
+def process(frames: list[Frame]):
+    subframes = frames[1].split(rows=2, columns=3)
+    for subframe in subframes:
+        subframe.set_frame_as('SELECTABLE')
+2026-05-08 12:54:04,482 - INFO -        [Stage 2] Structure Abstraction
+history: 1
+2026-05-08 12:54:17,755 - INFO -        [Stage 3] Solution Composition
+2026-05-08 12:54:17,783 - INFO - Generating script for CAPTCHA (13 out of 26): arkose/multichoice/card
+## Objective
+The task image contains 2 frame(s).
+
+First, provide one-sentence visual description of each frame.
+Second, identify the relationships between frames.
+Third, using the information, identify the sequential events and the final visual criteria that leads to solving the task.
+
+Use these Python tools:
+describe(frame_id: int, description: str)
+relate(frame_id1: int, frame_id2: int = None, relationship: str = '')
+objective(description: str)
+
+## Guidelines
+1. The output should be a Python block.
+2. The third step should be generic enough, it should not reveal the answer.
+3. In the third step, all event should begin with atomic verbs like `click`, `slide`, `drag`, `draw` and refer to choices/states rather than objects.
+4. Please describe rectangle boxes with hints (e.g., case sensitivity), instructions, or placeholders as input fields.
+history: 1
+
+describe(frame_id=0, description="The text 'Pick the matching cards (1 of 1)' is displayed.")
+describe(frame_id=1, description="A grid of six pairs of cards is shown, each pair featuring different animals and numbers.")
+relate(frame_id1=0, frame_id2=1, relationship="The first frame provides the instruction for the task shown in the second frame.")
+objective(description="Identify the pair of cards that match in both animal type and numerical value, then click on them to complete the task.")
+
+2026-05-08 12:54:32,068 - INFO -        [Stage 1] Objective Identification
+You are given a list of frames, their descriptions, relationships between frames, and the main task objective.
+
+Descriptions:
+Frame 0: The text 'Pick the matching cards (1 of 1)' is displayed.
+Frame 1: A grid of six pairs of cards is shown, each pair featuring different animals and numbers.
+
+Relations:
+Frame 0 and Frame 1: The first frame provides the instruction for the task shown in the second frame.
+
+Objective:
+Identify the pair of cards that match in both animal type and numerical value, then click on them to complete the task.
+
+Write a Python script `def structure_abstraction(frames: list[Frame])` to identify
+all element/frame-level interactables using these tools:
+
+        Frame.get_element(position: Literal[up, down, left, right], details: str) -> Element:
+                Get one specific element by its relative position in the frame and its detailed visual description.
+                Elements can be marked as interactables.
+                position: where is the element
+                details: color, shape, and visual features of the element
+
+        Frame.split(rows: int, columns: int) -> list[Frame]:
+                Split the entire frame into SELECTABLE subframes.
+
+        Frame.grid(tiles: int) -> list[list[Element]]:
+                Convert the frame into multiple SWAPPABLE tile elements.
+                tiles: total column * row cells.
+
+        Frame.set_frame_as(interactable: str) -> None:
+                POINTABLE: You can point to specific thing(s) in a 2D area as an answer
+                DRAWABLE: You can draw trajectories from A to B on a frame as an answer
+                INPUTTABLE: You can type a text answer in this input box as an answer
+                SELECTABLE: You can click to toggle this frame as an answer choice
+                NEXT: You can click this frame to submit/skip the task
+
+        Element.set_element_as(interactable: str) -> None:
+                DRAGGABLE: Can be freely moved anywhere
+                SWAPPABLE: Can manually exchange places with another SWAPPABLE
+                SLIDEABLE_X: Can be dragged along a horizontal track
+                SLIDEABLE_Y: Can be dragged along a vertical track
+                INPUTTABLE: You can type a text answer in this input box as an answer
+                CLICKABLE: UI button that can be clicked to transition a frame or cycle through choices
+                NEXT: UI button that can be clicked to submit/skip the task
+
+## Guidelines
+1. Use NEXT only when a submit or skip button (either text or icon) is present. If neither is found, omit NEXT.
+2. Ensure there is either zero or one NEXT, while maintaining exactly one other interactable type.
+3. Treat the dependent frame in a relationship as non-interactable.
+4. Prioritize extracting all interactables over solving the task.
+5. Choose either interactable frames or elements, but stick to one type for consistency.
+6. Ensure that frames are only marked with frame interactable types, and elements are only marked with element interactable types.
+7. When using split() and grid(), remember to mark the subframes/elements as interactables.
+history: 1
+def process(frames: list[Frame]):
+    """
+    Identifies the interactable elements in the card matching task.
+    Frame 0 is the instruction, Frame 1 contains the interactable cards.
+    """
+    cards = frames[1].grid(tiles=6)
+    for row in cards:
+        for element in row:
+            element.set_element_as('CLICKABLE')
+2026-05-08 12:54:50,001 - INFO -        [Stage 2] Structure Abstraction
+history: 1
+2026-05-08 12:54:57,289 - INFO -        [Stage 3] Solution Composition
+2026-05-08 12:54:57,330 - INFO - Generating script for CAPTCHA (14 out of 26): arkose/multichoice/counting
+## Objective
+The task image contains 2 frame(s).
+
+First, provide one-sentence visual description of each frame.
+Second, identify the relationships between frames.
+Third, using the information, identify the sequential events and the final visual criteria that leads to solving the task.
+
+Use these Python tools:
+describe(frame_id: int, description: str)
+relate(frame_id1: int, frame_id2: int = None, relationship: str = '')
+objective(description: str)
+
+## Guidelines
+1. The output should be a Python block.
+2. The third step should be generic enough, it should not reveal the answer.
+3. In the third step, all event should begin with atomic verbs like `click`, `slide`, `drag`, `draw` and refer to choices/states rather than objects.
+4. Please describe rectangle boxes with hints (e.g., case sensitivity), instructions, or placeholders as input fields.
+history: 1
+
+describe(frame_id=0, description="The frame displays the instruction to select the image where the number matches the count of animals.")
+describe(frame_id=1, description="The frame shows a grid of six images, each containing a specific number of animals and a corresponding digit.")
+relate(frame_id1=0, frame_id2=1, relationship="The first frame provides the instruction for the task presented in the second frame.")
+objective(description="Identify the image in the grid where the count of animals present matches the digit displayed in that same image.")
+
+2026-05-08 12:55:01,037 - INFO -        [Stage 1] Objective Identification
+You are given a list of frames, their descriptions, relationships between frames, and the main task objective.
+
+Descriptions:
+Frame 0: The frame displays the instruction to select the image where the number matches the count of animals.
+Frame 1: The frame shows a grid of six images, each containing a specific number of animals and a corresponding digit.
+
+Relations:
+Frame 0 and Frame 1: The first frame provides the instruction for the task presented in the second frame.
+
+Objective:
+Identify the image in the grid where the count of animals present matches the digit displayed in that same image.
+
+Write a Python script `def structure_abstraction(frames: list[Frame])` to identify
+all element/frame-level interactables using these tools:
+
+        Frame.get_element(position: Literal[up, down, left, right], details: str) -> Element:
+                Get one specific element by its relative position in the frame and its detailed visual description.
+                Elements can be marked as interactables.
+                position: where is the element
+                details: color, shape, and visual features of the element
+
+        Frame.split(rows: int, columns: int) -> list[Frame]:
+                Split the entire frame into SELECTABLE subframes.
+
+        Frame.grid(tiles: int) -> list[list[Element]]:
+                Convert the frame into multiple SWAPPABLE tile elements.
+                tiles: total column * row cells.
+
+        Frame.set_frame_as(interactable: str) -> None:
+                POINTABLE: You can point to specific thing(s) in a 2D area as an answer
+                DRAWABLE: You can draw trajectories from A to B on a frame as an answer
+                INPUTTABLE: You can type a text answer in this input box as an answer
+                SELECTABLE: You can click to toggle this frame as an answer choice
+                NEXT: You can click this frame to submit/skip the task
+
+        Element.set_element_as(interactable: str) -> None:
+                DRAGGABLE: Can be freely moved anywhere
+                SWAPPABLE: Can manually exchange places with another SWAPPABLE
+                SLIDEABLE_X: Can be dragged along a horizontal track
+                SLIDEABLE_Y: Can be dragged along a vertical track
+                INPUTTABLE: You can type a text answer in this input box as an answer
+                CLICKABLE: UI button that can be clicked to transition a frame or cycle through choices
+                NEXT: UI button that can be clicked to submit/skip the task
+
+## Guidelines
+1. Use NEXT only when a submit or skip button (either text or icon) is present. If neither is found, omit NEXT.
+2. Ensure there is either zero or one NEXT, while maintaining exactly one other interactable type.
+3. Treat the dependent frame in a relationship as non-interactable.
+4. Prioritize extracting all interactables over solving the task.
+5. Choose either interactable frames or elements, but stick to one type for consistency.
+6. Ensure that frames are only marked with frame interactable types, and elements are only marked with element interactable types.
+7. When using split() and grid(), remember to mark the subframes/elements as interactables.
+history: 1
+def process(frames: list[Frame]):
+    subframes = frames[1].split(rows=2, columns=3)
+    for subframe in subframes:
+        subframe.set_frame_as('SELECTABLE')
+2026-05-08 12:55:16,590 - INFO -        [Stage 2] Structure Abstraction
+history: 1
+2026-05-08 12:56:32,520 - INFO -        [Stage 3] Solution Composition
+2026-05-08 12:56:32,569 - INFO - Generating script for CAPTCHA (15 out of 26): arkose/multichoice/rotated
+## Objective
+The task image contains 2 frame(s).
+
+First, provide one-sentence visual description of each frame.
+Second, identify the relationships between frames.
+Third, using the information, identify the sequential events and the final visual criteria that leads to solving the task.
+
+Use these Python tools:
+describe(frame_id: int, description: str)
+relate(frame_id1: int, frame_id2: int = None, relationship: str = '')
+objective(description: str)
+
+## Guidelines
+1. The output should be a Python block.
+2. The third step should be generic enough, it should not reveal the answer.
+3. In the third step, all event should begin with atomic verbs like `click`, `slide`, `drag`, `draw` and refer to choices/states rather than objects.
+4. Please describe rectangle boxes with hints (e.g., case sensitivity), instructions, or placeholders as input fields.
+history: 1
+
+describe(0, "The frame contains the instruction text: 'Pick the image that is the correct way up (1 of 1)'.")
+describe(1, "The frame displays a grid of six images, each showing a frog in a different orientation.")
+relate(0, 1, "Frame 0 provides the instruction for the task presented in Frame 1.")
+objective("Identify and click the image in the grid that shows the frog in its natural, upright standing position.")
+
+2026-05-08 12:56:47,598 - INFO -        [Stage 1] Objective Identification
+You are given a list of frames, their descriptions, relationships between frames, and the main task objective.
+
+Descriptions:
+Frame 0: The frame contains the instruction text: 'Pick the image that is the correct way up (1 of 1)'.
+Frame 1: The frame displays a grid of six images, each showing a frog in a different orientation.
+
+Relations:
+Frame 0 and Frame 1: Frame 0 provides the instruction for the task presented in Frame 1.
+
+Objective:
+Identify and click the image in the grid that shows the frog in its natural, upright standing position.
+
+Write a Python script `def structure_abstraction(frames: list[Frame])` to identify
+all element/frame-level interactables using these tools:
+
+        Frame.get_element(position: Literal[up, down, left, right], details: str) -> Element:
+                Get one specific element by its relative position in the frame and its detailed visual description.
+                Elements can be marked as interactables.
+                position: where is the element
+                details: color, shape, and visual features of the element
+
+        Frame.split(rows: int, columns: int) -> list[Frame]:
+                Split the entire frame into SELECTABLE subframes.
+
+        Frame.grid(tiles: int) -> list[list[Element]]:
+                Convert the frame into multiple SWAPPABLE tile elements.
+                tiles: total column * row cells.
+
+        Frame.set_frame_as(interactable: str) -> None:
+                POINTABLE: You can point to specific thing(s) in a 2D area as an answer
+                DRAWABLE: You can draw trajectories from A to B on a frame as an answer
+                INPUTTABLE: You can type a text answer in this input box as an answer
+                SELECTABLE: You can click to toggle this frame as an answer choice
+                NEXT: You can click this frame to submit/skip the task
+
+        Element.set_element_as(interactable: str) -> None:
+                DRAGGABLE: Can be freely moved anywhere
+                SWAPPABLE: Can manually exchange places with another SWAPPABLE
+                SLIDEABLE_X: Can be dragged along a horizontal track
+                SLIDEABLE_Y: Can be dragged along a vertical track
+                INPUTTABLE: You can type a text answer in this input box as an answer
+                CLICKABLE: UI button that can be clicked to transition a frame or cycle through choices
+                NEXT: UI button that can be clicked to submit/skip the task
+
+## Guidelines
+1. Use NEXT only when a submit or skip button (either text or icon) is present. If neither is found, omit NEXT.
+2. Ensure there is either zero or one NEXT, while maintaining exactly one other interactable type.
+3. Treat the dependent frame in a relationship as non-interactable.
+4. Prioritize extracting all interactables over solving the task.
+5. Choose either interactable frames or elements, but stick to one type for consistency.
+6. Ensure that frames are only marked with frame interactable types, and elements are only marked with element interactable types.
+7. When using split() and grid(), remember to mark the subframes/elements as interactables.
+history: 1
+def process(frames: list[Frame]):
+    frog_grid = frames[1].grid(tiles=6)
+    all_frog_elements = [element for row in frog_grid for element in row]
+    for frog in all_frog_elements:
+        frog.set_element_as('SELECTABLE')
+2026-05-08 12:56:53,883 - INFO -        [Stage 2] Structure Abstraction
+history: 1
+2026-05-08 12:57:01,504 - INFO -        [Stage 3] Solution Composition
+2026-05-08 12:57:01,537 - INFO - Generating script for CAPTCHA (16 out of 26): arkose/paged/dice_match
+## Objective
+The task image contains 5 frame(s).
+
+First, provide one-sentence visual description of each frame.
+Second, identify the relationships between frames.
+Third, using the information, identify the sequential events and the final visual criteria that leads to solving the task.
+
+Use these Python tools:
+describe(frame_id: int, description: str)
+relate(frame_id1: int, frame_id2: int = None, relationship: str = '')
+objective(description: str)
+
+## Guidelines
+1. The output should be a Python block.
+2. The third step should be generic enough, it should not reveal the answer.
+3. In the third step, all event should begin with atomic verbs like `click`, `slide`, `drag`, `draw` and refer to choices/states rather than objects.
+4. Please describe rectangle boxes with hints (e.g., case sensitivity), instructions, or placeholders as input fields.
+history: 1
+
+describe(0, "A row of five circular icons, with the first one being a green patterned circle and the others being empty grey outlines.")
+describe(1, "A collection of red dice with numbers and dots, accompanied by left and right arrow buttons for interaction.")
+describe(2, "The number 16 displayed in a bold, white font against a blurred, dark, textured background.")
+describe(3, "A rectangular button labeled 'Submit' on a dark background.")
+describe(4, "Instructional text stating: 'Click the arrows to sum the dice and match the number on the left. (1 of 1)'")
+
+relate(4, 1, "provides instructions for")
+relate(1, 2, "contains the target value to be matched by")
+relate(1, 3, "is the final action button to confirm the result of")
+
+objective("Calculate the sum of the dice values by interacting with the arrow buttons until the total matches the target number, then confirm the result.")
+
+2026-05-08 12:57:06,537 - INFO -        [Stage 1] Objective Identification
+You are given a list of frames, their descriptions, relationships between frames, and the main task objective.
+
+Descriptions:
+Frame 0: A row of five circular icons, with the first one being a green patterned circle and the others being empty grey outlines.
+Frame 1: A collection of red dice with numbers and dots, accompanied by left and right arrow buttons for interaction.
+Frame 2: The number 16 displayed in a bold, white font against a blurred, dark, textured background.
+Frame 3: A rectangular button labeled 'Submit' on a dark background.
+Frame 4: Instructional text stating: 'Click the arrows to sum the dice and match the number on the left. (1 of 1)'
+
+Relations:
+Frame 1 and Frame 2: contains the target value to be matched by
+Frame 1 and Frame 3: is the final action button to confirm the result of
+Frame 4 and Frame 1: provides instructions for
+
+Objective:
+Calculate the sum of the dice values by interacting with the arrow buttons until the total matches the target number, then confirm the result.
+
+Write a Python script `def structure_abstraction(frames: list[Frame])` to identify
+all element/frame-level interactables using these tools:
+
+        Frame.get_element(position: Literal[up, down, left, right], details: str) -> Element:
+                Get one specific element by its relative position in the frame and its detailed visual description.
+                Elements can be marked as interactables.
+                position: where is the element
+                details: color, shape, and visual features of the element
+
+        Frame.split(rows: int, columns: int) -> list[Frame]:
+                Split the entire frame into SELECTABLE subframes.
+
+        Frame.grid(tiles: int) -> list[list[Element]]:
+                Convert the frame into multiple SWAPPABLE tile elements.
+                tiles: total column * row cells.
+
+        Frame.set_frame_as(interactable: str) -> None:
+                POINTABLE: You can point to specific thing(s) in a 2D area as an answer
+                DRAWABLE: You can draw trajectories from A to B on a frame as an answer
+                INPUTTABLE: You can type a text answer in this input box as an answer
+                SELECTABLE: You can click to toggle this frame as an answer choice
+                NEXT: You can click this frame to submit/skip the task
+
+        Element.set_element_as(interactable: str) -> None:
+                DRAGGABLE: Can be freely moved anywhere
+                SWAPPABLE: Can manually exchange places with another SWAPPABLE
+                SLIDEABLE_X: Can be dragged along a horizontal track
+                SLIDEABLE_Y: Can be dragged along a vertical track
+                INPUTTABLE: You can type a text answer in this input box as an answer
+                CLICKABLE: UI button that can be clicked to transition a frame or cycle through choices
+                NEXT: UI button that can be clicked to submit/skip the task
+
+## Guidelines
+1. Use NEXT only when a submit or skip button (either text or icon) is present. If neither is found, omit NEXT.
+2. Ensure there is either zero or one NEXT, while maintaining exactly one other interactable type.
+3. Treat the dependent frame in a relationship as non-interactable.
+4. Prioritize extracting all interactables over solving the task.
+5. Choose either interactable frames or elements, but stick to one type for consistency.
+6. Ensure that frames are only marked with frame interactable types, and elements are only marked with element interactable types.
+7. When using split() and grid(), remember to mark the subframes/elements as interactables.
+history: 1
+def process(frames: list[Frame]):
+    left_arrow = frames[1].get_element(position='left', details='circular button with a left arrow')
+    left_arrow.set_element_as('CLICKABLE')
+    right_arrow = frames[1].get_element(position='right', details='circular button with a right arrow')
+    right_arrow.set_element_as('CLICKABLE')
+    frames[3].set_frame_as('NEXT')
+
+0: 768x768 32 objects, 444.4ms
+Speed: 22.9ms preprocess, 444.4ms inference, 3.2ms postprocess per image at shape (1, 3, 768, 768)
+2026-05-08 12:57:25,132 - INFO -        [Stage 2] Structure Abstraction
+history: 1
+2026-05-08 12:57:42,154 - INFO -        [Stage 3] Solution Composition
+2026-05-08 12:57:42,194 - INFO - Generating script for CAPTCHA (17 out of 26): arkose/paged/rockstack
+## Objective
+The task image contains 5 frame(s).
+
+First, provide one-sentence visual description of each frame.
+Second, identify the relationships between frames.
+Third, using the information, identify the sequential events and the final visual criteria that leads to solving the task.
+
+Use these Python tools:
+describe(frame_id: int, description: str)
+relate(frame_id1: int, frame_id2: int = None, relationship: str = '')
+objective(description: str)
+
+## Guidelines
+1. The output should be a Python block.
+2. The third step should be generic enough, it should not reveal the answer.
+3. In the third step, all event should begin with atomic verbs like `click`, `slide`, `drag`, `draw` and refer to choices/states rather than objects.
+4. Please describe rectangle boxes with hints (e.g., case sensitivity), instructions, or placeholders as input fields.
+history: 1
+
+describe(0, "A blank white frame.")
+describe(1, "A desert landscape featuring a group of three large rocks with navigation arrows at the bottom.")
+describe(2, "A large white number '2' displayed against a black background.")
+describe(3, "A button labeled 'Submit' on a dark background.")
+describe(4, "Instruction text asking to use arrows to select a group of rocks matching the indicated amount.")
+
+relate(1, 4, "The instruction in frame 4 applies to the interactive element in frame 1.")
+relate(2, 1, "The number in frame 2 represents the target quantity to be selected in the interface shown in frame 1.")
+relate(3, 1, "The submit button in frame 3 is used to confirm the selection made in frame 1.")
+
+objective("Identify the correct group of rocks that matches the numerical value provided and submit the selection.")
+
+# Sequential events:
+# 1. Read the instruction to understand the task requirements.
+# 2. Observe the target number displayed in the reference frame.
+# 3. Click the navigation arrows to cycle through different groups of rocks.
+# 4. Stop when the group of rocks matches the target number.
+# 5. Click the submit button to finalize the choice.
+
+2026-05-08 12:57:47,728 - INFO -        [Stage 1] Objective Identification
+You are given a list of frames, their descriptions, relationships between frames, and the main task objective.
+
+Descriptions:
+Frame 0: A blank white frame.
+Frame 1: A desert landscape featuring a group of three large rocks with navigation arrows at the bottom.
+Frame 2: A large white number '2' displayed against a black background.
+Frame 3: A button labeled 'Submit' on a dark background.
+Frame 4: Instruction text asking to use arrows to select a group of rocks matching the indicated amount.
+
+Relations:
+Frame 1 and Frame 4: The instruction in frame 4 applies to the interactive element in frame 1.
+Frame 2 and Frame 1: The number in frame 2 represents the target quantity to be selected in the interface shown in frame 1.
+Frame 3 and Frame 1: The submit button in frame 3 is used to confirm the selection made in frame 1.
+
+Objective:
+Identify the correct group of rocks that matches the numerical value provided and submit the selection.
+
+Write a Python script `def structure_abstraction(frames: list[Frame])` to identify
+all element/frame-level interactables using these tools:
+
+        Frame.get_element(position: Literal[up, down, left, right], details: str) -> Element:
+                Get one specific element by its relative position in the frame and its detailed visual description.
+                Elements can be marked as interactables.
+                position: where is the element
+                details: color, shape, and visual features of the element
+
+        Frame.split(rows: int, columns: int) -> list[Frame]:
+                Split the entire frame into SELECTABLE subframes.
+
+        Frame.grid(tiles: int) -> list[list[Element]]:
+                Convert the frame into multiple SWAPPABLE tile elements.
+                tiles: total column * row cells.
+
+        Frame.set_frame_as(interactable: str) -> None:
+                POINTABLE: You can point to specific thing(s) in a 2D area as an answer
+                DRAWABLE: You can draw trajectories from A to B on a frame as an answer
+                INPUTTABLE: You can type a text answer in this input box as an answer
+                SELECTABLE: You can click to toggle this frame as an answer choice
+                NEXT: You can click this frame to submit/skip the task
+
+        Element.set_element_as(interactable: str) -> None:
+                DRAGGABLE: Can be freely moved anywhere
+                SWAPPABLE: Can manually exchange places with another SWAPPABLE
+                SLIDEABLE_X: Can be dragged along a horizontal track
+                SLIDEABLE_Y: Can be dragged along a vertical track
+                INPUTTABLE: You can type a text answer in this input box as an answer
+                CLICKABLE: UI button that can be clicked to transition a frame or cycle through choices
+                NEXT: UI button that can be clicked to submit/skip the task
+
+## Guidelines
+1. Use NEXT only when a submit or skip button (either text or icon) is present. If neither is found, omit NEXT.
+2. Ensure there is either zero or one NEXT, while maintaining exactly one other interactable type.
+3. Treat the dependent frame in a relationship as non-interactable.
+4. Prioritize extracting all interactables over solving the task.
+5. Choose either interactable frames or elements, but stick to one type for consistency.
+6. Ensure that frames are only marked with frame interactable types, and elements are only marked with element interactable types.
+7. When using split() and grid(), remember to mark the subframes/elements as interactables.
+history: 1
+def process(frames: list[Frame]):
+    left_arrow = frames[1].get_element(position='left', details='circular button with a left-pointing arrow')
+    left_arrow.set_element_as('CLICKABLE')
+    right_arrow = frames[1].get_element(position='right', details='circular button with a right-pointing arrow')
+    right_arrow.set_element_as('CLICKABLE')
+    submit_button = frames[3].get_element(position='down', details="button labeled 'Submit' on a dark background")
+    submit_button.set_element_as('NEXT')
+
+0: 768x736 25 objects, 407.1ms
+Speed: 21.5ms preprocess, 407.1ms inference, 2.6ms postprocess per image at shape (1, 3, 768, 736)
+
+0: 96x768 1 object, 130.5ms
+Speed: 0.5ms preprocess, 130.5ms inference, 1.1ms postprocess per image at shape (1, 3, 96, 768)
+2026-05-08 12:58:05,948 - INFO -        [Stage 2] Structure Abstraction
+history: 1
+2026-05-08 12:58:12,120 - INFO -        [Stage 3] Solution Composition
+2026-05-08 12:58:12,157 - INFO - Generating script for CAPTCHA (18 out of 26): arkose/paged/numbermatch
+## Objective
+The task image contains 5 frame(s).
+
+First, provide one-sentence visual description of each frame.
+Second, identify the relationships between frames.
+Third, using the information, identify the sequential events and the final visual criteria that leads to solving the task.
+
+Use these Python tools:
+describe(frame_id: int, description: str)
+relate(frame_id1: int, frame_id2: int = None, relationship: str = '')
+objective(description: str)
+
+## Guidelines
+1. The output should be a Python block.
+2. The third step should be generic enough, it should not reveal the answer.
+3. In the third step, all event should begin with atomic verbs like `click`, `slide`, `drag`, `draw` and refer to choices/states rather than objects.
+4. Please describe rectangle boxes with hints (e.g., case sensitivity), instructions, or placeholders as input fields.
+history: 1
+
+describe(0, "A blank white frame.")
+describe(1, "A frame showing three circular objects with a left and right arrow for navigation and a progress indicator at the bottom.")
+describe(2, "A frame showing a mathematical expression '0 x' followed by a necklace icon with two heart pendants.")
+describe(3, "A frame containing a 'Submit' button.")
+describe(4, "A frame with instructional text explaining to use arrows to match the number of objects to the left image.")
+
+relate(1, 4, "The instruction in frame 4 applies to the interactive elements in frame 1.")
+relate(2, 1, "Frame 2 provides the target quantity or visual reference for the objects in frame 1.")
+relate(1, 3, "Frame 3 is the final action button to confirm the configuration set in frame 1.")
+
+objective("Adjust the quantity of objects in the interactive interface to match the target count specified in the reference image, then confirm the selection.")
+
+2026-05-08 12:58:17,021 - INFO -        [Stage 1] Objective Identification
+You are given a list of frames, their descriptions, relationships between frames, and the main task objective.
+
+Descriptions:
+Frame 0: A blank white frame.
+Frame 1: A frame showing three circular objects with a left and right arrow for navigation and a progress indicator at the bottom.
+Frame 2: A frame showing a mathematical expression '0 x' followed by a necklace icon with two heart pendants.
+Frame 3: A frame containing a 'Submit' button.
+Frame 4: A frame with instructional text explaining to use arrows to match the number of objects to the left image.
+
+Relations:
+Frame 1 and Frame 4: The instruction in frame 4 applies to the interactive elements in frame 1.
+Frame 1 and Frame 3: Frame 3 is the final action button to confirm the configuration set in frame 1.
+Frame 2 and Frame 1: Frame 2 provides the target quantity or visual reference for the objects in frame 1.
+
+Objective:
+Adjust the quantity of objects in the interactive interface to match the target count specified in the reference image, then confirm the selection.
+
+Write a Python script `def structure_abstraction(frames: list[Frame])` to identify
+all element/frame-level interactables using these tools:
+
+        Frame.get_element(position: Literal[up, down, left, right], details: str) -> Element:
+                Get one specific element by its relative position in the frame and its detailed visual description.
+                Elements can be marked as interactables.
+                position: where is the element
+                details: color, shape, and visual features of the element
+
+        Frame.split(rows: int, columns: int) -> list[Frame]:
+                Split the entire frame into SELECTABLE subframes.
+
+        Frame.grid(tiles: int) -> list[list[Element]]:
+                Convert the frame into multiple SWAPPABLE tile elements.
+                tiles: total column * row cells.
+
+        Frame.set_frame_as(interactable: str) -> None:
+                POINTABLE: You can point to specific thing(s) in a 2D area as an answer
+                DRAWABLE: You can draw trajectories from A to B on a frame as an answer
+                INPUTTABLE: You can type a text answer in this input box as an answer
+                SELECTABLE: You can click to toggle this frame as an answer choice
+                NEXT: You can click this frame to submit/skip the task
+
+        Element.set_element_as(interactable: str) -> None:
+                DRAGGABLE: Can be freely moved anywhere
+                SWAPPABLE: Can manually exchange places with another SWAPPABLE
+                SLIDEABLE_X: Can be dragged along a horizontal track
+                SLIDEABLE_Y: Can be dragged along a vertical track
+                INPUTTABLE: You can type a text answer in this input box as an answer
+                CLICKABLE: UI button that can be clicked to transition a frame or cycle through choices
+                NEXT: UI button that can be clicked to submit/skip the task
+
+## Guidelines
+1. Use NEXT only when a submit or skip button (either text or icon) is present. If neither is found, omit NEXT.
+2. Ensure there is either zero or one NEXT, while maintaining exactly one other interactable type.
+3. Treat the dependent frame in a relationship as non-interactable.
+4. Prioritize extracting all interactables over solving the task.
+5. Choose either interactable frames or elements, but stick to one type for consistency.
+6. Ensure that frames are only marked with frame interactable types, and elements are only marked with element interactable types.
+7. When using split() and grid(), remember to mark the subframes/elements as interactables.
+history: 1
+def process(frames: list[Frame]):
+    left_arrow = frames[1].get_element(position='left', details='circular button with a left-pointing arrow')
+    left_arrow.set_element_as('CLICKABLE')
+    right_arrow = frames[1].get_element(position='right', details='circular button with a right-pointing arrow')
+    right_arrow.set_element_as('CLICKABLE')
+    submit_button = frames[3].get_element(position='left', details='Submit button')
+    submit_button.set_element_as('NEXT')
+
+0: 768x736 17 objects, 346.6ms
+Speed: 20.8ms preprocess, 346.6ms inference, 2.2ms postprocess per image at shape (1, 3, 768, 736)
+
+0: 96x768 1 object, 79.9ms
+Speed: 0.5ms preprocess, 79.9ms inference, 1.1ms postprocess per image at shape (1, 3, 96, 768)
+2026-05-08 12:58:20,846 - INFO -        [Stage 2] Structure Abstraction
+history: 1
+2026-05-08 12:58:40,310 - INFO -        [Stage 3] Solution Composition
+2026-05-08 12:58:40,349 - INFO - Generating script for CAPTCHA (19 out of 26): arkose/paged/orbit_match_game
+## Objective
+The task image contains 5 frame(s).
+
+First, provide one-sentence visual description of each frame.
+Second, identify the relationships between frames.
+Third, using the information, identify the sequential events and the final visual criteria that leads to solving the task.
+
+Use these Python tools:
+describe(frame_id: int, description: str)
+relate(frame_id1: int, frame_id2: int = None, relationship: str = '')
+objective(description: str)
+
+## Guidelines
+1. The output should be a Python block.
+2. The third step should be generic enough, it should not reveal the answer.
+3. In the third step, all event should begin with atomic verbs like `click`, `slide`, `drag`, `draw` and refer to choices/states rather than objects.
+4. Please describe rectangle boxes with hints (e.g., case sensitivity), instructions, or placeholders as input fields.
+history: 1
+
+describe(0, "A blank white screen with a navigation indicator at the bottom right.")
+describe(1, "A circular interface with various icons arranged in orbits, featuring left and right navigation arrows.")
+describe(2, "A screen displaying the number 4 above an icon of an open box with an upward-pointing arrow.")
+describe(3, "A simple button labeled 'Submit' on a dark background.")
+describe(4, "A text instruction stating 'Use the arrows to move the icon into the indicated orbit. (1 of 1)'.")
+
+relate(4, 1, "provides instructions for")
+relate(1, 2, "shows the state of the selection process")
+relate(2, 3, "leads to the final action of")
+
+objective("Use the navigation arrows to position the target icon into the specified orbit and confirm the selection.")
+
+2026-05-08 12:58:59,515 - INFO -        [Stage 1] Objective Identification
+You are given a list of frames, their descriptions, relationships between frames, and the main task objective.
+
+Descriptions:
+Frame 0: A blank white screen with a navigation indicator at the bottom right.
+Frame 1: A circular interface with various icons arranged in orbits, featuring left and right navigation arrows.
+Frame 2: A screen displaying the number 4 above an icon of an open box with an upward-pointing arrow.
+Frame 3: A simple button labeled 'Submit' on a dark background.
+Frame 4: A text instruction stating 'Use the arrows to move the icon into the indicated orbit. (1 of 1)'.
+
+Relations:
+Frame 1 and Frame 2: shows the state of the selection process
+Frame 2 and Frame 3: leads to the final action of
+Frame 4 and Frame 1: provides instructions for
+
+Objective:
+Use the navigation arrows to position the target icon into the specified orbit and confirm the selection.
+
+Write a Python script `def structure_abstraction(frames: list[Frame])` to identify
+all element/frame-level interactables using these tools:
+
+        Frame.get_element(position: Literal[up, down, left, right], details: str) -> Element:
+                Get one specific element by its relative position in the frame and its detailed visual description.
+                Elements can be marked as interactables.
+                position: where is the element
+                details: color, shape, and visual features of the element
+
+        Frame.split(rows: int, columns: int) -> list[Frame]:
+                Split the entire frame into SELECTABLE subframes.
+
+        Frame.grid(tiles: int) -> list[list[Element]]:
+                Convert the frame into multiple SWAPPABLE tile elements.
+                tiles: total column * row cells.
+
+        Frame.set_frame_as(interactable: str) -> None:
+                POINTABLE: You can point to specific thing(s) in a 2D area as an answer
+                DRAWABLE: You can draw trajectories from A to B on a frame as an answer
+                INPUTTABLE: You can type a text answer in this input box as an answer
+                SELECTABLE: You can click to toggle this frame as an answer choice
+                NEXT: You can click this frame to submit/skip the task
+
+        Element.set_element_as(interactable: str) -> None:
+                DRAGGABLE: Can be freely moved anywhere
+                SWAPPABLE: Can manually exchange places with another SWAPPABLE
+                SLIDEABLE_X: Can be dragged along a horizontal track
+                SLIDEABLE_Y: Can be dragged along a vertical track
+                INPUTTABLE: You can type a text answer in this input box as an answer
+                CLICKABLE: UI button that can be clicked to transition a frame or cycle through choices
+                NEXT: UI button that can be clicked to submit/skip the task
+
+## Guidelines
+1. Use NEXT only when a submit or skip button (either text or icon) is present. If neither is found, omit NEXT.
+2. Ensure there is either zero or one NEXT, while maintaining exactly one other interactable type.
+3. Treat the dependent frame in a relationship as non-interactable.
+4. Prioritize extracting all interactables over solving the task.
+5. Choose either interactable frames or elements, but stick to one type for consistency.
+6. Ensure that frames are only marked with frame interactable types, and elements are only marked with element interactable types.
+7. When using split() and grid(), remember to mark the subframes/elements as interactables.
+history: 1
+def process(frames: list[Frame]):
+    left_arrow = frames[1].get_element(position='left', details='circular button with left arrow')
+    left_arrow.set_element_as('CLICKABLE')
+    right_arrow = frames[1].get_element(position='right', details='circular button with right arrow')
+    right_arrow.set_element_as('CLICKABLE')
+    icons = frames[1].grid(tiles=4)
+    for row in icons:
+        for element in row:
+            element.set_element_as('SWAPPABLE')
+    submit_button = frames[3].get_element(position='down', details='Submit button on dark background')
+    submit_button.set_element_as('NEXT')
+    frames[4].set_frame_as('SELECTABLE')
+
+0: 768x768 33 objects, 360.7ms
+Speed: 25.4ms preprocess, 360.7ms inference, 2.5ms postprocess per image at shape (1, 3, 768, 768)
+
+0: 96x768 1 object, 78.4ms
+Speed: 0.5ms preprocess, 78.4ms inference, 1.0ms postprocess per image at shape (1, 3, 96, 768)
+2026-05-08 12:59:03,889 - INFO -        [Stage 2] Structure Abstraction
+history: 1
+2026-05-08 12:59:10,132 - INFO -        [Stage 3] Solution Composition
+2026-05-08 12:59:10,162 - INFO - Generating script for CAPTCHA (20 out of 26): arkose/paged/3d_rollball_objects
+## Objective
+The task image contains 5 frame(s).
+
+First, provide one-sentence visual description of each frame.
+Second, identify the relationships between frames.
+Third, using the information, identify the sequential events and the final visual criteria that leads to solving the task.
+
+Use these Python tools:
+describe(frame_id: int, description: str)
+relate(frame_id1: int, frame_id2: int = None, relationship: str = '')
+objective(description: str)
+
+## Guidelines
+1. The output should be a Python block.
+2. The third step should be generic enough, it should not reveal the answer.
+3. In the third step, all event should begin with atomic verbs like `click`, `slide`, `drag`, `draw` and refer to choices/states rather than objects.
+4. Please describe rectangle boxes with hints (e.g., case sensitivity), instructions, or placeholders as input fields.
+history: 1
+
+describe(0, "A blank white frame.")
+describe(1, "A wheelbarrow centered on a grey background with left and right navigation arrows and a progress indicator at the bottom.")
+describe(2, "A wooden mannequin hand pointing to the right against a dark brick wall.")
+describe(3, "A rectangular button labeled 'Submit' on a dark background.")
+describe(4, "Instruction text stating: 'Use the arrows to rotate the object to face in the direction of the hand. (1 of 1)'")
+
+relate(1, 4, "provides the interactive object and controls for the task described in frame 4.")
+relate(2, 4, "provides the directional reference for the task described in frame 4.")
+relate(1, 3, "the submit button is used to finalize the interaction performed on the object in frame 1.")
+
+objective("Rotate the object using the navigation arrows until it matches the orientation indicated by the reference hand, then click the submit button.")
+
+2026-05-08 12:59:16,978 - INFO -        [Stage 1] Objective Identification
+You are given a list of frames, their descriptions, relationships between frames, and the main task objective.
+
+Descriptions:
+Frame 0: A blank white frame.
+Frame 1: A wheelbarrow centered on a grey background with left and right navigation arrows and a progress indicator at the bottom.
+Frame 2: A wooden mannequin hand pointing to the right against a dark brick wall.
+Frame 3: A rectangular button labeled 'Submit' on a dark background.
+Frame 4: Instruction text stating: 'Use the arrows to rotate the object to face in the direction of the hand. (1 of 1)'
+
+Relations:
+Frame 1 and Frame 4: provides the interactive object and controls for the task described in frame 4.
+Frame 1 and Frame 3: the submit button is used to finalize the interaction performed on the object in frame 1.
+Frame 2 and Frame 4: provides the directional reference for the task described in frame 4.
+
+Objective:
+Rotate the object using the navigation arrows until it matches the orientation indicated by the reference hand, then click the submit button.
+
+Write a Python script `def structure_abstraction(frames: list[Frame])` to identify
+all element/frame-level interactables using these tools:
+
+        Frame.get_element(position: Literal[up, down, left, right], details: str) -> Element:
+                Get one specific element by its relative position in the frame and its detailed visual description.
+                Elements can be marked as interactables.
+                position: where is the element
+                details: color, shape, and visual features of the element
+
+        Frame.split(rows: int, columns: int) -> list[Frame]:
+                Split the entire frame into SELECTABLE subframes.
+
+        Frame.grid(tiles: int) -> list[list[Element]]:
+                Convert the frame into multiple SWAPPABLE tile elements.
+                tiles: total column * row cells.
+
+        Frame.set_frame_as(interactable: str) -> None:
+                POINTABLE: You can point to specific thing(s) in a 2D area as an answer
+                DRAWABLE: You can draw trajectories from A to B on a frame as an answer
+                INPUTTABLE: You can type a text answer in this input box as an answer
+                SELECTABLE: You can click to toggle this frame as an answer choice
+                NEXT: You can click this frame to submit/skip the task
+
+        Element.set_element_as(interactable: str) -> None:
+                DRAGGABLE: Can be freely moved anywhere
+                SWAPPABLE: Can manually exchange places with another SWAPPABLE
+                SLIDEABLE_X: Can be dragged along a horizontal track
+                SLIDEABLE_Y: Can be dragged along a vertical track
+                INPUTTABLE: You can type a text answer in this input box as an answer
+                CLICKABLE: UI button that can be clicked to transition a frame or cycle through choices
+                NEXT: UI button that can be clicked to submit/skip the task
+
+## Guidelines
+1. Use NEXT only when a submit or skip button (either text or icon) is present. If neither is found, omit NEXT.
+2. Ensure there is either zero or one NEXT, while maintaining exactly one other interactable type.
+3. Treat the dependent frame in a relationship as non-interactable.
+4. Prioritize extracting all interactables over solving the task.
+5. Choose either interactable frames or elements, but stick to one type for consistency.
+6. Ensure that frames are only marked with frame interactable types, and elements are only marked with element interactable types.
+7. When using split() and grid(), remember to mark the subframes/elements as interactables.
+history: 1
+def process(frames: list[Frame]):
+    left_arrow = frames[1].get_element(position='left', details='circular button with left arrow')
+    right_arrow = frames[1].get_element(position='right', details='circular button with right arrow')
+    left_arrow.set_element_as('CLICKABLE')
+    right_arrow.set_element_as('CLICKABLE')
+    submit_button = frames[3].get_element(position='down', details='rectangular button labeled Submit')
+    submit_button.set_element_as('NEXT')
+
+0: 768x736 12 objects, 323.2ms
+Speed: 22.1ms preprocess, 323.2ms inference, 1.9ms postprocess per image at shape (1, 3, 768, 736)
+
+0: 96x768 1 object, 78.8ms
+Speed: 0.5ms preprocess, 78.8ms inference, 1.1ms postprocess per image at shape (1, 3, 96, 768)
+2026-05-08 12:59:37,629 - INFO -        [Stage 2] Structure Abstraction
+history: 1
+2026-05-08 12:59:42,470 - INFO -        [Stage 3] Solution Composition
+2026-05-08 12:59:42,509 - INFO - Generating script for CAPTCHA (21 out of 26): mtcaptcha
+## Objective
+The task image contains 2 frame(s).
+
+First, provide one-sentence visual description of each frame.
+Second, identify the relationships between frames.
+Third, using the information, identify the sequential events and the final visual criteria that leads to solving the task.
+
+Use these Python tools:
+describe(frame_id: int, description: str)
+relate(frame_id1: int, frame_id2: int = None, relationship: str = '')
+objective(description: str)
+
+## Guidelines
+1. The output should be a Python block.
+2. The third step should be generic enough, it should not reveal the answer.
+3. In the third step, all event should begin with atomic verbs like `click`, `slide`, `drag`, `draw` and refer to choices/states rather than objects.
+4. Please describe rectangle boxes with hints (e.g., case sensitivity), instructions, or placeholders as input fields.
+history: 1
+
+describe(frame_id=0, description="A text input field with the placeholder 'Enter text from image'.")
+describe(frame_id=1, description="An image containing a sequence of distorted, stylized characters against a dark, textured background.")
+relate(frame_id1=0, frame_id2=1, relationship="The text input field in frame 0 is intended for the user to transcribe the characters displayed in frame 1.")
+objective(description="Transcribe the characters shown in the image into the provided text input field to complete the verification task.")
+
+2026-05-08 12:59:48,351 - INFO -        [Stage 1] Objective Identification
+You are given a list of frames, their descriptions, relationships between frames, and the main task objective.
+
+Descriptions:
+Frame 0: A text input field with the placeholder 'Enter text from image'.
+Frame 1: An image containing a sequence of distorted, stylized characters against a dark, textured background.
+
+Relations:
+Frame 0 and Frame 1: The text input field in frame 0 is intended for the user to transcribe the characters displayed in frame 1.
+
+Objective:
+Transcribe the characters shown in the image into the provided text input field to complete the verification task.
+
+Write a Python script `def structure_abstraction(frames: list[Frame])` to identify
+all element/frame-level interactables using these tools:
+
+        Frame.get_element(position: Literal[up, down, left, right], details: str) -> Element:
+                Get one specific element by its relative position in the frame and its detailed visual description.
+                Elements can be marked as interactables.
+                position: where is the element
+                details: color, shape, and visual features of the element
+
+        Frame.split(rows: int, columns: int) -> list[Frame]:
+                Split the entire frame into SELECTABLE subframes.
+
+        Frame.grid(tiles: int) -> list[list[Element]]:
+                Convert the frame into multiple SWAPPABLE tile elements.
+                tiles: total column * row cells.
+
+        Frame.set_frame_as(interactable: str) -> None:
+                POINTABLE: You can point to specific thing(s) in a 2D area as an answer
+                DRAWABLE: You can draw trajectories from A to B on a frame as an answer
+                INPUTTABLE: You can type a text answer in this input box as an answer
+                SELECTABLE: You can click to toggle this frame as an answer choice
+                NEXT: You can click this frame to submit/skip the task
+
+        Element.set_element_as(interactable: str) -> None:
+                DRAGGABLE: Can be freely moved anywhere
+                SWAPPABLE: Can manually exchange places with another SWAPPABLE
+                SLIDEABLE_X: Can be dragged along a horizontal track
+                SLIDEABLE_Y: Can be dragged along a vertical track
+                INPUTTABLE: You can type a text answer in this input box as an answer
+                CLICKABLE: UI button that can be clicked to transition a frame or cycle through choices
+                NEXT: UI button that can be clicked to submit/skip the task
+
+## Guidelines
+1. Use NEXT only when a submit or skip button (either text or icon) is present. If neither is found, omit NEXT.
+2. Ensure there is either zero or one NEXT, while maintaining exactly one other interactable type.
+3. Treat the dependent frame in a relationship as non-interactable.
+4. Prioritize extracting all interactables over solving the task.
+5. Choose either interactable frames or elements, but stick to one type for consistency.
+6. Ensure that frames are only marked with frame interactable types, and elements are only marked with element interactable types.
+7. When using split() and grid(), remember to mark the subframes/elements as interactables.
+history: 1
+def process(frames: list[Frame]):
+    """
+    Identifies interactables for the verification task.
+    Frame 0 is the input field, Frame 1 is the reference image.
+    """
+    input_element = frames[0].get_element(position='up', details="rectangular text input field with placeholder 'Enter text from image'")
+    input_element.set_element_as('INPUTTABLE')
+
+0: 128x768 2 objects, 125.5ms
+Speed: 34.7ms preprocess, 125.5ms inference, 1.2ms postprocess per image at shape (1, 3, 128, 768)
+2026-05-08 13:00:05,985 - INFO -        [Stage 2] Structure Abstraction
+history: 1
+2026-05-08 13:00:07,533 - INFO -        [Stage 3] Solution Composition
+2026-05-08 13:00:07,570 - INFO - Generating script for CAPTCHA (22 out of 26): recaptchav2
+## Objective
+The task image contains 3 frame(s).
+
+First, provide one-sentence visual description of each frame.
+Second, identify the relationships between frames.
+Third, using the information, identify the sequential events and the final visual criteria that leads to solving the task.
+
+Use these Python tools:
+describe(frame_id: int, description: str)
+relate(frame_id1: int, frame_id2: int = None, relationship: str = '')
+objective(description: str)
+
+## Guidelines
+1. The output should be a Python block.
+2. The third step should be generic enough, it should not reveal the answer.
+3. In the third step, all event should begin with atomic verbs like `click`, `slide`, `drag`, `draw` and refer to choices/states rather than objects.
+4. Please describe rectangle boxes with hints (e.g., case sensitivity), instructions, or placeholders as input fields.
+history: 1
+
+describe(frame_id=0, description="A blank screen with a 'SKIP' button at the bottom right.")
+describe(frame_id=1, description="A 3x3 grid of images showing various street scenes, including crosswalks, a fire hydrant, a bus, and a highway.")
+describe(frame_id=2, description="A blue banner with the instruction 'Select all images with crosswalks'.")
+
+relate(frame_id1=2, frame_id2=1, relationship="provides the instruction for the task shown in")
+relate(frame_id1=1, frame_id2=0, relationship="is followed by the screen containing")
+
+objective(description="Identify and select all grid tiles that contain a crosswalk based on the provided instruction.")
+
+2026-05-08 13:00:18,486 - INFO -        [Stage 1] Objective Identification
+You are given a list of frames, their descriptions, relationships between frames, and the main task objective.
+
+Descriptions:
+Frame 0: A blank screen with a 'SKIP' button at the bottom right.
+Frame 1: A 3x3 grid of images showing various street scenes, including crosswalks, a fire hydrant, a bus, and a highway.
+Frame 2: A blue banner with the instruction 'Select all images with crosswalks'.
+
+Relations:
+Frame 1 and Frame 0: is followed by the screen containing
+Frame 2 and Frame 1: provides the instruction for the task shown in
+
+Objective:
+Identify and select all grid tiles that contain a crosswalk based on the provided instruction.
+
+Write a Python script `def structure_abstraction(frames: list[Frame])` to identify
+all element/frame-level interactables using these tools:
+
+        Frame.get_element(position: Literal[up, down, left, right], details: str) -> Element:
+                Get one specific element by its relative position in the frame and its detailed visual description.
+                Elements can be marked as interactables.
+                position: where is the element
+                details: color, shape, and visual features of the element
+
+        Frame.split(rows: int, columns: int) -> list[Frame]:
+                Split the entire frame into SELECTABLE subframes.
+
+        Frame.grid(tiles: int) -> list[list[Element]]:
+                Convert the frame into multiple SWAPPABLE tile elements.
+                tiles: total column * row cells.
+
+        Frame.set_frame_as(interactable: str) -> None:
+                POINTABLE: You can point to specific thing(s) in a 2D area as an answer
+                DRAWABLE: You can draw trajectories from A to B on a frame as an answer
+                INPUTTABLE: You can type a text answer in this input box as an answer
+                SELECTABLE: You can click to toggle this frame as an answer choice
+                NEXT: You can click this frame to submit/skip the task
+
+        Element.set_element_as(interactable: str) -> None:
+                DRAGGABLE: Can be freely moved anywhere
+                SWAPPABLE: Can manually exchange places with another SWAPPABLE
+                SLIDEABLE_X: Can be dragged along a horizontal track
+                SLIDEABLE_Y: Can be dragged along a vertical track
+                INPUTTABLE: You can type a text answer in this input box as an answer
+                CLICKABLE: UI button that can be clicked to transition a frame or cycle through choices
+                NEXT: UI button that can be clicked to submit/skip the task
+
+## Guidelines
+1. Use NEXT only when a submit or skip button (either text or icon) is present. If neither is found, omit NEXT.
+2. Ensure there is either zero or one NEXT, while maintaining exactly one other interactable type.
+3. Treat the dependent frame in a relationship as non-interactable.
+4. Prioritize extracting all interactables over solving the task.
+5. Choose either interactable frames or elements, but stick to one type for consistency.
+6. Ensure that frames are only marked with frame interactable types, and elements are only marked with element interactable types.
+7. When using split() and grid(), remember to mark the subframes/elements as interactables.
+history: 1
+def process(frames: list[Frame]):
+    skip_button = frames[0].get_element(position='down', details='blue rectangular button with text SKIP')
+    skip_button.set_element_as('NEXT')
+    grid_elements = frames[1].grid(tiles=9)
+    for row in grid_elements:
+        for element in row:
+            element.set_element_as('CLICKABLE')
+    frames[1].set_frame_as('SELECTABLE')
+
+0: 768x544 4 objects, 287.2ms
+Speed: 16.9ms preprocess, 287.2ms inference, 1.8ms postprocess per image at shape (1, 3, 768, 544)
+2026-05-08 13:00:25,818 - INFO -        [Stage 2] Structure Abstraction
+history: 1
+2026-05-08 13:00:46,529 - INFO -        [Stage 3] Solution Composition
+2026-05-08 13:00:46,573 - INFO - Generating script for CAPTCHA (23 out of 26): tencent
+## Objective
+The task image contains 2 frame(s).
+
+First, provide one-sentence visual description of each frame.
+Second, identify the relationships between frames.
+Third, using the information, identify the sequential events and the final visual criteria that leads to solving the task.
+
+Use these Python tools:
+describe(frame_id: int, description: str)
+relate(frame_id1: int, frame_id2: int = None, relationship: str = '')
+objective(description: str)
+
+## Guidelines
+1. The output should be a Python block.
+2. The third step should be generic enough, it should not reveal the answer.
+3. In the third step, all event should begin with atomic verbs like `click`, `slide`, `drag`, `draw` and refer to choices/states rather than objects.
+4. Please describe rectangle boxes with hints (e.g., case sensitivity), instructions, or placeholders as input fields.
+history: 1
+
+describe(frame_id=0, description="The frame contains text instructions to click on the object directly below the letter 'm'.")
+describe(frame_id=1, description="The frame displays various 3D objects, including letters 'm' and 'l', a blue cylinder, a green cylinder, a yellow cylinder, and a blue cone.")
+relate(frame_id1=0, frame_id2=1, relationship="The first frame provides the instruction for the task to be performed on the objects shown in the second frame.")
+objective(description="Identify the letter 'm' that has an object positioned directly beneath it and click on that specific object.")
+
+2026-05-08 13:01:03,297 - INFO -        [Stage 1] Objective Identification
+You are given a list of frames, their descriptions, relationships between frames, and the main task objective.
+
+Descriptions:
+Frame 0: The frame contains text instructions to click on the object directly below the letter 'm'.
+Frame 1: The frame displays various 3D objects, including letters 'm' and 'l', a blue cylinder, a green cylinder, a yellow cylinder, and a blue cone.
+
+Relations:
+Frame 0 and Frame 1: The first frame provides the instruction for the task to be performed on the objects shown in the second frame.
+
+Objective:
+Identify the letter 'm' that has an object positioned directly beneath it and click on that specific object.
+
+Write a Python script `def structure_abstraction(frames: list[Frame])` to identify
+all element/frame-level interactables using these tools:
+
+        Frame.get_element(position: Literal[up, down, left, right], details: str) -> Element:
+                Get one specific element by its relative position in the frame and its detailed visual description.
+                Elements can be marked as interactables.
+                position: where is the element
+                details: color, shape, and visual features of the element
+
+        Frame.split(rows: int, columns: int) -> list[Frame]:
+                Split the entire frame into SELECTABLE subframes.
+
+        Frame.grid(tiles: int) -> list[list[Element]]:
+                Convert the frame into multiple SWAPPABLE tile elements.
+                tiles: total column * row cells.
+
+        Frame.set_frame_as(interactable: str) -> None:
+                POINTABLE: You can point to specific thing(s) in a 2D area as an answer
+                DRAWABLE: You can draw trajectories from A to B on a frame as an answer
+                INPUTTABLE: You can type a text answer in this input box as an answer
+                SELECTABLE: You can click to toggle this frame as an answer choice
+                NEXT: You can click this frame to submit/skip the task
+
+        Element.set_element_as(interactable: str) -> None:
+                DRAGGABLE: Can be freely moved anywhere
+                SWAPPABLE: Can manually exchange places with another SWAPPABLE
+                SLIDEABLE_X: Can be dragged along a horizontal track
+                SLIDEABLE_Y: Can be dragged along a vertical track
+                INPUTTABLE: You can type a text answer in this input box as an answer
+                CLICKABLE: UI button that can be clicked to transition a frame or cycle through choices
+                NEXT: UI button that can be clicked to submit/skip the task
+
+## Guidelines
+1. Use NEXT only when a submit or skip button (either text or icon) is present. If neither is found, omit NEXT.
+2. Ensure there is either zero or one NEXT, while maintaining exactly one other interactable type.
+3. Treat the dependent frame in a relationship as non-interactable.
+4. Prioritize extracting all interactables over solving the task.
+5. Choose either interactable frames or elements, but stick to one type for consistency.
+6. Ensure that frames are only marked with frame interactable types, and elements are only marked with element interactable types.
+7. When using split() and grid(), remember to mark the subframes/elements as interactables.
+history: 1
+def process(frames: list[Frame]):
+    """
+    Identifies interactable elements in the provided frames.
+    Frame 0 is the instruction frame (non-interactable).
+    Frame 1 contains the objects to be interacted with.
+    """
+    green_cylinder = frames[1].get_element(position='down', details='green cylinder')
+    green_cylinder.set_element_as('CLICKABLE')
+    blue_cylinder = frames[1].get_element(position='down', details='blue cylinder')
+    blue_cylinder.set_element_as('CLICKABLE')
+
+0: 544x768 15 objects, 304.7ms
+Speed: 24.4ms preprocess, 304.7ms inference, 2.1ms postprocess per image at shape (1, 3, 544, 768)
+2026-05-08 13:01:06,864 - INFO -        [Stage 2] Structure Abstraction
+history: 1
+2026-05-08 13:01:20,669 - INFO -        [Stage 3] Solution Composition
+2026-05-08 13:01:20,703 - INFO - Generating script for CAPTCHA (24 out of 26): yandex/text
+## Objective
+The task image contains 5 frame(s).
+
+First, provide one-sentence visual description of each frame.
+Second, identify the relationships between frames.
+Third, using the information, identify the sequential events and the final visual criteria that leads to solving the task.
+
+Use these Python tools:
+describe(frame_id: int, description: str)
+relate(frame_id1: int, frame_id2: int = None, relationship: str = '')
+objective(description: str)
+
+## Guidelines
+1. The output should be a Python block.
+2. The third step should be generic enough, it should not reveal the answer.
+3. In the third step, all event should begin with atomic verbs like `click`, `slide`, `drag`, `draw` and refer to choices/states rather than objects.
+4. Please describe rectangle boxes with hints (e.g., case sensitivity), instructions, or placeholders as input fields.
+history: 1
+
+describe(0, "A blank, light-colored background.")
+describe(1, "An image containing the text 'mantle outbound' with a gray triangular shape.")
+describe(2, "A blue button labeled 'Submit'.")
+describe(3, "An input field with the placeholder text 'Uppercase or lowercase letters'.")
+describe(4, "A text instruction stating 'Enter the code from the image'.")
+
+relate(4, 1, "provides context for")
+relate(3, 4, "is the input field for")
+relate(2, 3, "is the action button for")
+
+objective("Complete the CAPTCHA verification by entering the text displayed in the image into the input field and submitting the form.")
+
+2026-05-08 13:01:25,748 - INFO -        [Stage 1] Objective Identification
+You are given a list of frames, their descriptions, relationships between frames, and the main task objective.
+
+Descriptions:
+Frame 0: A blank, light-colored background.
+Frame 1: An image containing the text 'mantle outbound' with a gray triangular shape.
+Frame 2: A blue button labeled 'Submit'.
+Frame 3: An input field with the placeholder text 'Uppercase or lowercase letters'.
+Frame 4: A text instruction stating 'Enter the code from the image'.
+
+Relations:
+Frame 2 and Frame 3: is the action button for
+Frame 3 and Frame 4: is the input field for
+Frame 4 and Frame 1: provides context for
+
+Objective:
+Complete the CAPTCHA verification by entering the text displayed in the image into the input field and submitting the form.
+
+Write a Python script `def structure_abstraction(frames: list[Frame])` to identify
+all element/frame-level interactables using these tools:
+
+        Frame.get_element(position: Literal[up, down, left, right], details: str) -> Element:
+                Get one specific element by its relative position in the frame and its detailed visual description.
+                Elements can be marked as interactables.
+                position: where is the element
+                details: color, shape, and visual features of the element
+
+        Frame.split(rows: int, columns: int) -> list[Frame]:
+                Split the entire frame into SELECTABLE subframes.
+
+        Frame.grid(tiles: int) -> list[list[Element]]:
+                Convert the frame into multiple SWAPPABLE tile elements.
+                tiles: total column * row cells.
+
+        Frame.set_frame_as(interactable: str) -> None:
+                POINTABLE: You can point to specific thing(s) in a 2D area as an answer
+                DRAWABLE: You can draw trajectories from A to B on a frame as an answer
+                INPUTTABLE: You can type a text answer in this input box as an answer
+                SELECTABLE: You can click to toggle this frame as an answer choice
+                NEXT: You can click this frame to submit/skip the task
+
+        Element.set_element_as(interactable: str) -> None:
+                DRAGGABLE: Can be freely moved anywhere
+                SWAPPABLE: Can manually exchange places with another SWAPPABLE
+                SLIDEABLE_X: Can be dragged along a horizontal track
+                SLIDEABLE_Y: Can be dragged along a vertical track
+                INPUTTABLE: You can type a text answer in this input box as an answer
+                CLICKABLE: UI button that can be clicked to transition a frame or cycle through choices
+                NEXT: UI button that can be clicked to submit/skip the task
+
+## Guidelines
+1. Use NEXT only when a submit or skip button (either text or icon) is present. If neither is found, omit NEXT.
+2. Ensure there is either zero or one NEXT, while maintaining exactly one other interactable type.
+3. Treat the dependent frame in a relationship as non-interactable.
+4. Prioritize extracting all interactables over solving the task.
+5. Choose either interactable frames or elements, but stick to one type for consistency.
+6. Ensure that frames are only marked with frame interactable types, and elements are only marked with element interactable types.
+7. When using split() and grid(), remember to mark the subframes/elements as interactables.
+history: 1
+def process(frames: list[Frame]):
+    """
+    Identifies interactables for the CAPTCHA verification task.
+
+    - Frame 2 (Submit button) is marked as NEXT.
+    - Frame 3 (Input field) is marked as INPUTTABLE.
+    - Other frames are context or non-interactable.
+    """
+    frames[2].set_frame_as('NEXT')
+    frames[3].set_frame_as('INPUTTABLE')
+2026-05-08 13:01:34,746 - INFO -        [Stage 2] Structure Abstraction
+history: 1
+2026-05-08 13:01:37,421 - INFO -        [Stage 3] Solution Composition
+2026-05-08 13:01:37,470 - INFO - Generating script for CAPTCHA (25 out of 26): yandex/kaleidoscope
+## Objective
+The task image contains 4 frame(s).
+
+First, provide one-sentence visual description of each frame.
+Second, identify the relationships between frames.
+Third, using the information, identify the sequential events and the final visual criteria that leads to solving the task.
+
+Use these Python tools:
+describe(frame_id: int, description: str)
+relate(frame_id1: int, frame_id2: int = None, relationship: str = '')
+objective(description: str)
+
+## Guidelines
+1. The output should be a Python block.
+2. The third step should be generic enough, it should not reveal the answer.
+3. In the third step, all event should begin with atomic verbs like `click`, `slide`, `drag`, `draw` and refer to choices/states rather than objects.
+4. Please describe rectangle boxes with hints (e.g., case sensitivity), instructions, or placeholders as input fields.
+history: 1
+
+describe(0, "A blank white square.")
+describe(1, "A grid of 16 image tiles showing a sunset over a rocky coastline.")
+describe(2, "A blue button with a right-pointing arrow and the text 'Pull to the right'.")
+describe(3, "Text instruction reading 'Move the slider to complete the puzzle'.")
+
+relate(0, 1, "The blank square represents the target area for the puzzle pieces.")
+relate(2, 3, "The button and the text provide the mechanism and instruction to solve the puzzle.")
+
+objective("Complete the puzzle by interacting with the slider mechanism.")
+
+# Sequential events:
+# 1. Read the instruction to understand the goal.
+# 2. Locate the slider mechanism.
+# 3. Slide the control to the right to assemble the image tiles into a coherent picture.
+
+2026-05-08 13:02:01,832 - INFO -        [Stage 1] Objective Identification
+You are given a list of frames, their descriptions, relationships between frames, and the main task objective.
+
+Descriptions:
+Frame 0: A blank white square.
+Frame 1: A grid of 16 image tiles showing a sunset over a rocky coastline.
+Frame 2: A blue button with a right-pointing arrow and the text 'Pull to the right'.
+Frame 3: Text instruction reading 'Move the slider to complete the puzzle'.
+
+Relations:
+Frame 0 and Frame 1: The blank square represents the target area for the puzzle pieces.
+Frame 2 and Frame 3: The button and the text provide the mechanism and instruction to solve the puzzle.
+
+Objective:
+Complete the puzzle by interacting with the slider mechanism.
+
+Write a Python script `def structure_abstraction(frames: list[Frame])` to identify
+all element/frame-level interactables using these tools:
+
+        Frame.get_element(position: Literal[up, down, left, right], details: str) -> Element:
+                Get one specific element by its relative position in the frame and its detailed visual description.
+                Elements can be marked as interactables.
+                position: where is the element
+                details: color, shape, and visual features of the element
+
+        Frame.split(rows: int, columns: int) -> list[Frame]:
+                Split the entire frame into SELECTABLE subframes.
+
+        Frame.grid(tiles: int) -> list[list[Element]]:
+                Convert the frame into multiple SWAPPABLE tile elements.
+                tiles: total column * row cells.
+
+        Frame.set_frame_as(interactable: str) -> None:
+                POINTABLE: You can point to specific thing(s) in a 2D area as an answer
+                DRAWABLE: You can draw trajectories from A to B on a frame as an answer
+                INPUTTABLE: You can type a text answer in this input box as an answer
+                SELECTABLE: You can click to toggle this frame as an answer choice
+                NEXT: You can click this frame to submit/skip the task
+
+        Element.set_element_as(interactable: str) -> None:
+                DRAGGABLE: Can be freely moved anywhere
+                SWAPPABLE: Can manually exchange places with another SWAPPABLE
+                SLIDEABLE_X: Can be dragged along a horizontal track
+                SLIDEABLE_Y: Can be dragged along a vertical track
+                INPUTTABLE: You can type a text answer in this input box as an answer
+                CLICKABLE: UI button that can be clicked to transition a frame or cycle through choices
+                NEXT: UI button that can be clicked to submit/skip the task
+
+## Guidelines
+1. Use NEXT only when a submit or skip button (either text or icon) is present. If neither is found, omit NEXT.
+2. Ensure there is either zero or one NEXT, while maintaining exactly one other interactable type.
+3. Treat the dependent frame in a relationship as non-interactable.
+4. Prioritize extracting all interactables over solving the task.
+5. Choose either interactable frames or elements, but stick to one type for consistency.
+6. Ensure that frames are only marked with frame interactable types, and elements are only marked with element interactable types.
+7. When using split() and grid(), remember to mark the subframes/elements as interactables.
+history: 1
+def process(frames: list[Frame]):
+    tiles = frames[1].grid(16)
+    for row in tiles:
+        for element in row:
+            element.set_element_as('SWAPPABLE')
+    slider_button = frames[2].get_element(position='left', details='blue button with a right-pointing arrow')
+    slider_button.set_element_as('SLIDEABLE_X')
+
+0: 128x768 2 objects, 125.3ms
+Speed: 20.3ms preprocess, 125.3ms inference, 1.3ms postprocess per image at shape (1, 3, 128, 768)
+2026-05-08 13:02:17,032 - INFO -        [Stage 2] Structure Abstraction
+history: 1
+2026-05-08 13:03:10,574 - INFO -        [Stage 3] Solution Composition
+2026-05-08 13:03:10,606 - INFO - Generating script for CAPTCHA (26 out of 26): amazon
+## Objective
+The task image contains 2 frame(s).
+
+First, provide one-sentence visual description of each frame.
+Second, identify the relationships between frames.
+Third, using the information, identify the sequential events and the final visual criteria that leads to solving the task.
+
+Use these Python tools:
+describe(frame_id: int, description: str)
+relate(frame_id1: int, frame_id2: int = None, relationship: str = '')
+objective(description: str)
+
+## Guidelines
+1. The output should be a Python block.
+2. The third step should be generic enough, it should not reveal the answer.
+3. In the third step, all event should begin with atomic verbs like `click`, `slide`, `drag`, `draw` and refer to choices/states rather than objects.
+4. Please describe rectangle boxes with hints (e.g., case sensitivity), instructions, or placeholders as input fields.
+history: 1
+
+describe(frame_id=0, description="A puzzle interface with instructions to place a dot at the end of a car's path and a submit button.")
+describe(frame_id=1, description="A top-down view of a city grid with an orange line representing a car's path starting from a car icon.")
+relate(frame_id1=0, frame_id2=1, relationship="The second frame provides the visual context for the task described in the first frame.")
+objective(description="Identify the terminal point of the orange path on the map and place a dot there to complete the puzzle.")
+
+2026-05-08 13:03:14,632 - INFO -        [Stage 1] Objective Identification
+You are given a list of frames, their descriptions, relationships between frames, and the main task objective.
+
+Descriptions:
+Frame 0: A puzzle interface with instructions to place a dot at the end of a car's path and a submit button.
+Frame 1: A top-down view of a city grid with an orange line representing a car's path starting from a car icon.
+
+Relations:
+Frame 0 and Frame 1: The second frame provides the visual context for the task described in the first frame.
+
+Objective:
+Identify the terminal point of the orange path on the map and place a dot there to complete the puzzle.
+
+Write a Python script `def structure_abstraction(frames: list[Frame])` to identify
+all element/frame-level interactables using these tools:
+
+        Frame.get_element(position: Literal[up, down, left, right], details: str) -> Element:
+                Get one specific element by its relative position in the frame and its detailed visual description.
+                Elements can be marked as interactables.
+                position: where is the element
+                details: color, shape, and visual features of the element
+
+        Frame.split(rows: int, columns: int) -> list[Frame]:
+                Split the entire frame into SELECTABLE subframes.
+
+        Frame.grid(tiles: int) -> list[list[Element]]:
+                Convert the frame into multiple SWAPPABLE tile elements.
+                tiles: total column * row cells.
+
+        Frame.set_frame_as(interactable: str) -> None:
+                POINTABLE: You can point to specific thing(s) in a 2D area as an answer
+                DRAWABLE: You can draw trajectories from A to B on a frame as an answer
+                INPUTTABLE: You can type a text answer in this input box as an answer
+                SELECTABLE: You can click to toggle this frame as an answer choice
+                NEXT: You can click this frame to submit/skip the task
+
+        Element.set_element_as(interactable: str) -> None:
+                DRAGGABLE: Can be freely moved anywhere
+                SWAPPABLE: Can manually exchange places with another SWAPPABLE
+                SLIDEABLE_X: Can be dragged along a horizontal track
+                SLIDEABLE_Y: Can be dragged along a vertical track
+                INPUTTABLE: You can type a text answer in this input box as an answer
+                CLICKABLE: UI button that can be clicked to transition a frame or cycle through choices
+                NEXT: UI button that can be clicked to submit/skip the task
+
+## Guidelines
+1. Use NEXT only when a submit or skip button (either text or icon) is present. If neither is found, omit NEXT.
+2. Ensure there is either zero or one NEXT, while maintaining exactly one other interactable type.
+3. Treat the dependent frame in a relationship as non-interactable.
+4. Prioritize extracting all interactables over solving the task.
+5. Choose either interactable frames or elements, but stick to one type for consistency.
+6. Ensure that frames are only marked with frame interactable types, and elements are only marked with element interactable types.
+7. When using split() and grid(), remember to mark the subframes/elements as interactables.
+history: 1
+def process(frames: list[Frame]):
+    submit_button = frames[0].get_element(position='down', details='orange rectangular button with text Submit')
+    submit_button.set_element_as('NEXT')
+    map_area = frames[1].get_element(position='down', details='top-down city grid with an orange path')
+    map_area.set_element_as('POINTABLE')
+
+0: 768x576 2 objects, 427.7ms
+Speed: 21.3ms preprocess, 427.7ms inference, 1.8ms postprocess per image at shape (1, 3, 768, 576)
+
+0: 768x768 94 objects, 329.8ms
+Speed: 2.6ms preprocess, 329.8ms inference, 10.5ms postprocess per image at shape (1, 3, 768, 768)
+2026-05-08 13:03:23,491 - INFO -        [Stage 2] Structure Abstraction
+history: 1
+2026-05-08 13:03:30,165 - INFO -        [Stage 3] Solution Composition
+(base) linux@abhinav:/scratch/abhinav/Halligan/halligan$ pixi run env -u PYTHONPATH -u ROS_DISTRO -u AMENT_PREFIX_PATH -u AMENT_CURRENT_PREFIX python execute.py
+2026-05-08 13:08:50,658 - INFO - Testing CAPTCHA (1 out of 26): lemin
+
+0: 768x608 8 objects, 376.4ms
+Speed: 3.4ms preprocess, 376.4ms inference, 2.9ms postprocess per image at shape (1, 3, 768, 608)
+history: 1
+history: 1
+all images 27
+[]
+history: 1
+RESPONSE = '''
+rank(ids=[5, 8, 7, 6, 4, 1, 2, 3, 0, 9])
+'''
+TIME = 11.772516952827573
+FINGERPRINT = None
+TOTAL_TOKENS = 11052
+PROMPT_TOKENS = 11019
+COMPLETION_TOKENS = 33
+history: 1
+RESPONSE = '''
+rank(ids=[0, 2, 3, 4, 5, 6, 7, 1, 8, 9])
+'''
+TIME = 3.804822666803375
+FINGERPRINT = None
+TOTAL_TOKENS = 11235
+PROMPT_TOKENS = 11202
+COMPLETION_TOKENS = 33
+history: 1
+RESPONSE = '''
+rank(ids=[0, 3, 6, 5, 1, 4, 2])
+'''
+TIME = 3.270903591066599
+FINGERPRINT = None
+TOTAL_TOKENS = 7782
+PROMPT_TOKENS = 7758
+COMPLETION_TOKENS = 24
+[]
+history: 1
+RESPONSE = '''
+rank(ids=[1, 0, 2])
+'''
+TIME = 1.490092891966924
+FINGERPRINT = None
+TOTAL_TOKENS = 3419
+PROMPT_TOKENS = 3407
+COMPLETION_TOKENS = 12
+2026-05-08 13:09:22,043 - INFO - Solved: False
+2026-05-08 13:09:22,044 - INFO - Testing CAPTCHA (2 out of 26): geetest/slide
+
+0: 128x768 6 objects, 162.4ms
+Speed: 17.0ms preprocess, 162.4ms inference, 1.5ms postprocess per image at shape (1, 3, 128, 768)
+all images 5
+[]
+history: 1
+RESPONSE = '''
+rank(ids=[2, 1, 0, 3, 4])
+'''
+TIME = 22.13264273200184
+FINGERPRINT = None
+TOTAL_TOKENS = 5678
+PROMPT_TOKENS = 5660
+COMPLETION_TOKENS = 18
+all images 10
+[]
+history: 1
+RESPONSE = '''
+rank(ids=[1, 0, 2, 4, 3, 5, 6, 7, 8, 9])
+'''
+TIME = 23.39906574320048
+FINGERPRINT = None
+TOTAL_TOKENS = 11243
+PROMPT_TOKENS = 11210
+COMPLETION_TOKENS = 33
+2026-05-08 13:10:10,797 - INFO - Solved: True
+2026-05-08 13:10:10,797 - INFO - Testing CAPTCHA (3 out of 26): geetest/gobang
+2026-05-08 13:10:19,383 - INFO - Solved: True
+2026-05-08 13:10:19,383 - INFO - Testing CAPTCHA (4 out of 26): geetest/icon
+## Objective
+The task image contains 3 frame(s).
+
+First, provide one-sentence visual description of each frame.
+Second, identify the relationships between frames.
+Third, using the information, identify the sequential events and the final visual criteria that leads to solving the task.
+
+Use these Python tools:
+describe(frame_id: int, description: str)
+relate(frame_id1: int, frame_id2: int = None, relationship: str = '')
+objective(description: str)
+
+## Guidelines
+1. The output should be a Python block.
+2. The third step should be generic enough, it should not reveal the answer.
+3. In the third step, all event should begin with atomic verbs like `click`, `slide`, `drag`, `draw` and refer to choices/states rather than objects.
+4. Please describe rectangle boxes with hints (e.g., case sensitivity), instructions, or placeholders as input fields.
+history: 1
+
+describe(frame_id=0, description="The frame displays a prompt to select three icons in a specific order: a robotic arm, a radiation symbol, and a padlock.")
+describe(frame_id=1, description="The frame shows a grassy background with three semi-transparent icons: a radiation symbol, a padlock, and a robotic arm.")
+describe(frame_id=2, description="The frame shows a blue button with the text 'OK' centered on it.")
+
+relate(frame_id1=0, frame_id2=1, relationship="The first frame provides the target sequence for the icons presented in the second frame.")
+relate(frame_id1=1, frame_id2=2, relationship="The second frame contains the interactive elements that must be selected before clicking the confirmation button in the third frame.")
+
+objective(description="Click the icons in the grassy background in the exact order specified in the prompt, then click the confirmation button to complete the task.")
+
+You are given a list of frames, their descriptions, relationships between frames, and the main task objective.
+
+Descriptions:
+Frame 0: The frame displays a prompt to select three icons in a specific order: a robotic arm, a radiation symbol, and a padlock.
+Frame 1: The frame shows a grassy background with three semi-transparent icons: a radiation symbol, a padlock, and a robotic arm.
+Frame 2: The frame shows a blue button with the text 'OK' centered on it.
+
+Relations:
+Frame 0 and Frame 1: The first frame provides the target sequence for the icons presented in the second frame.
+Frame 1 and Frame 2: The second frame contains the interactive elements that must be selected before clicking the confirmation button in the third frame.
+
+Objective:
+Click the icons in the grassy background in the exact order specified in the prompt, then click the confirmation button to complete the task.
+
+Write a Python script `def structure_abstraction(frames: list[Frame])` to identify
+all element/frame-level interactables using these tools:
+
+        Frame.get_element(position: Literal[up, down, left, right], details: str) -> Element:
+                Get one specific element by its relative position in the frame and its detailed visual description.
+                Elements can be marked as interactables.
+                position: where is the element
+                details: color, shape, and visual features of the element
+
+        Frame.split(rows: int, columns: int) -> list[Frame]:
+                Split the entire frame into SELECTABLE subframes.
+
+        Frame.grid(tiles: int) -> list[list[Element]]:
+                Convert the frame into multiple SWAPPABLE tile elements.
+                tiles: total column * row cells.
+
+        Frame.set_frame_as(interactable: str) -> None:
+                POINTABLE: You can point to specific thing(s) in a 2D area as an answer
+                DRAWABLE: You can draw trajectories from A to B on a frame as an answer
+                INPUTTABLE: You can type a text answer in this input box as an answer
+                SELECTABLE: You can click to toggle this frame as an answer choice
+                NEXT: You can click this frame to submit/skip the task
+
+        Element.set_element_as(interactable: str) -> None:
+                DRAGGABLE: Can be freely moved anywhere
+                SWAPPABLE: Can manually exchange places with another SWAPPABLE
+                SLIDEABLE_X: Can be dragged along a horizontal track
+                SLIDEABLE_Y: Can be dragged along a vertical track
+                INPUTTABLE: You can type a text answer in this input box as an answer
+                CLICKABLE: UI button that can be clicked to transition a frame or cycle through choices
+                NEXT: UI button that can be clicked to submit/skip the task
+
+## Guidelines
+1. Use NEXT only when a submit or skip button (either text or icon) is present. If neither is found, omit NEXT.
+2. Ensure there is either zero or one NEXT, while maintaining exactly one other interactable type.
+3. Treat the dependent frame in a relationship as non-interactable.
+4. Prioritize extracting all interactables over solving the task.
+5. Choose either interactable frames or elements, but stick to one type for consistency.
+6. Ensure that frames are only marked with frame interactable types, and elements are only marked with element interactable types.
+7. When using split() and grid(), remember to mark the subframes/elements as interactables.
+history: 1
+def process(frames: list[Frame]):
+    radiation_icon = frames[1].get_element(position='up', details='radiation symbol icon')
+    radiation_icon.set_element_as('CLICKABLE')
+    padlock_icon = frames[1].get_element(position='left', details='padlock icon')
+    padlock_icon.set_element_as('CLICKABLE')
+    robotic_arm_icon = frames[1].get_element(position='right', details='robotic arm icon')
+    robotic_arm_icon.set_element_as('CLICKABLE')
+    ok_button = frames[2].get_element(position='down', details='blue button with text OK')
+    ok_button.set_element_as('NEXT')
+
+0: 512x768 19 objects, 482.8ms
+Speed: 20.9ms preprocess, 482.8ms inference, 2.6ms postprocess per image at shape (1, 3, 512, 768)
+
+0: 128x768 4 objects, 119.9ms
+Speed: 0.6ms preprocess, 119.9ms inference, 1.4ms postprocess per image at shape (1, 3, 128, 768)
+history: 1
+history: 1
+2026-05-08 13:10:47,060 - INFO - Solved: False
+2026-05-08 13:10:47,060 - INFO - Testing CAPTCHA (5 out of 26): geetest/iconcrush
+## Objective
+The task image contains 2 frame(s).
+
+First, provide one-sentence visual description of each frame.
+Second, identify the relationships between frames.
+Third, using the information, identify the sequential events and the final visual criteria that leads to solving the task.
+
+Use these Python tools:
+describe(frame_id: int, description: str)
+relate(frame_id1: int, frame_id2: int = None, relationship: str = '')
+objective(description: str)
+
+## Guidelines
+1. The output should be a Python block.
+2. The third step should be generic enough, it should not reveal the answer.
+3. In the third step, all event should begin with atomic verbs like `click`, `slide`, `drag`, `draw` and refer to choices/states rather than objects.
+4. Please describe rectangle boxes with hints (e.g., case sensitivity), instructions, or placeholders as input fields.
+history: 1
+
+describe(frame_id=0, description="A blank screen with the instruction text 'Click and swap to line up three identical items in a row' and a GEETEST logo.")
+describe(frame_id=1, description="A 3x3 grid of various emoji icons.")
+relate(frame_id1=0, frame_id2=1, relationship="The first frame provides the instructions for the puzzle presented in the second frame.")
+objective(description="The goal is to solve the puzzle by performing a sequence of swaps to align three identical emoji icons in a horizontal or vertical row.")
+
+2026-05-08 13:11:15,377 - INFO - Solved: True
+2026-05-08 13:11:15,377 - INFO - Testing CAPTCHA (6 out of 26): baidu
+
+0: 160x768 6 objects, 242.0ms
+Speed: 19.2ms preprocess, 242.0ms inference, 2.1ms postprocess per image at shape (1, 3, 160, 768)
+all images 10
+[]
+history: 1
+RESPONSE = '''
+rank(ids=[2, 3, 1, 0, 4, 5, 9, 6, 7, 8])
+'''
+TIME = 5.034964611986652
+FINGERPRINT = None
+TOTAL_TOKENS = 11020
+PROMPT_TOKENS = 10987
+COMPLETION_TOKENS = 33
+all images 10
+[]
+history: 1
+RESPONSE = '''
+rank(ids=[6, 7, 8, 9, 5, 4, 3, 2, 1, 0])
+'''
+TIME = 17.092135227052495
+FINGERPRINT = None
+TOTAL_TOKENS = 11020
+PROMPT_TOKENS = 10987
+COMPLETION_TOKENS = 33
+2026-05-08 13:11:40,090 - INFO - Solved: True
+2026-05-08 13:11:40,090 - INFO - Testing CAPTCHA (7 out of 26): hcaptcha
+
+0: 160x768 6 objects, 156.1ms
+Speed: 17.8ms preprocess, 156.1ms inference, 2.0ms postprocess per image at shape (1, 3, 160, 768)
+history: 1
+2026-05-08 13:12:05,159 - INFO - Solved: True
+2026-05-08 13:12:05,160 - INFO - Testing CAPTCHA (8 out of 26): botdetect
+## Objective
+The task image contains 4 frame(s).
+
+First, provide one-sentence visual description of each frame.
+Second, identify the relationships between frames.
+Third, using the information, identify the sequential events and the final visual criteria that leads to solving the task.
+
+Use these Python tools:
+describe(frame_id: int, description: str)
+relate(frame_id1: int, frame_id2: int = None, relationship: str = '')
+objective(description: str)
+
+## Guidelines
+1. The output should be a Python block.
+2. The third step should be generic enough, it should not reveal the answer.
+3. In the third step, all event should begin with atomic verbs like `click`, `slide`, `drag`, `draw` and refer to choices/states rather than objects.
+4. Please describe rectangle boxes with hints (e.g., case sensitivity), instructions, or placeholders as input fields.
+history: 1
+
+describe(0, "An empty text input field for user entry.")
+describe(1, "A distorted text string 'YBTMN' overlaid with horizontal lines.")
+describe(2, "Instruction text asking to retype the characters from the picture.")
+describe(3, "A button labeled 'Validate' for submission.")
+
+relate(0, 1, "The input field is where the characters from the distorted image should be typed.")
+relate(2, 1, "The instruction text refers to the characters shown in the distorted image.")
+relate(0, 3, "The input field and the validate button are part of the same form submission process.")
+
+objective("Identify the characters in the distorted image and submit them through the input field to complete the validation process.")
+
+# Sequential events:
+# 1. Observe the characters in the distorted image.
+# 2. Click the input field to focus.
+# 3. Type the identified characters into the input field.
+# 4. Click the 'Validate' button to submit the entry.
+
+
+0: 320x768 2 objects, 259.4ms
+Speed: 32.5ms preprocess, 259.4ms inference, 1.4ms postprocess per image at shape (1, 3, 320, 768)
+
+0: 256x768 1 object, 190.3ms
+Speed: 0.8ms preprocess, 190.3ms inference, 1.1ms postprocess per image at shape (1, 3, 256, 768)
+Solve tasks using your vision, coding, and language skills.
+When using code, the user cannot provide any other feedback or perform any other action beyond executing the code you suggest. The user can't modify your code. So do not suggest incomplete code which requires users to modify. Don't use a code block if it's not intended to be executed by the user.
+
+## Objective
+Identify the characters in the distorted image and submit them through the input field to complete the validation process.
+
+## Frame Relationships
+Frame 0 and Frame 1: The input field is where the characters from the distorted image should be typed.
+Frame 0 and Frame 3: The input field and the validate button are part of the same form submission process.
+Frame 2 and Frame 1: The instruction text refers to the characters shown in the distorted image.
+
+Compose a Python script solution. Example:
+```python
+def solve(frames: list) -> None:
+    # Extract the CAPTCHA text from the image in Frame 1
+    captcha_image = frames[1].image
+    captcha_text = "iPmhr"  # Manually identified from the image
+
+    # Get the input field element in Frame 1
+    input_field = frames[1].get_interactable(0)
+
+    # Enter the CAPTCHA text into the input field
+    enter(input_field, captcha_text)
+
+    # Click the "Next" button to submit
+    next_button = frames[1].get_interactable(1)
+    click(next_button)
+```
+
+You can perform these actions:
+        click(target: Union[Frame, Element]) -> None:
+                Click a UI button.
+
+        enter(field: Union[Frame, Element], text: str) -> None:
+                Click on an input field and enter text.
+
+You can use these tools in the Python script to help you:
+        Frame.image -> PIL.Image.Image:
+                Each frame has a referenceable image for processing/analysis.
+
+        Frame.get_interactable(id: int) -> Element:
+                Get an interactable element in the frame by its id.
+
+## Guidelines
+1. You can provide the answer for math and text challenges without using tools.
+2. You are only allowed to use to given tools rather than importing new tools.
+3. Compose the solution without referencing the possible answer in the objective (e.g., flowers -> icon).
+4. You should implement all placeholders.
+5. Exact match (==) is illegal because there are error and variance in the tools.
+history: 1
+def solve(frames: list) -> None:
+    captcha_text = 'YBTMN'
+    input_field = frames[0].get_interactable(0)
+    enter(input_field, captcha_text)
+    validate_button = frames[3].get_interactable(0)
+    click(validate_button)
+2026-05-08 13:12:14,243 - INFO - Solved: True
+2026-05-08 13:12:14,243 - INFO - Testing CAPTCHA (9 out of 26): arkose/multichoice/square_icon
+history: 1
+2026-05-08 13:12:36,804 - INFO - Solved: True
+2026-05-08 13:12:36,804 - INFO - Testing CAPTCHA (10 out of 26): arkose/multichoice/galaxies
+history: 1
+2026-05-08 13:13:02,164 - INFO - Solved: True
+2026-05-08 13:13:02,164 - INFO - Testing CAPTCHA (11 out of 26): arkose/multichoice/dice_pair
+history: 1
+2026-05-08 13:13:29,544 - INFO - Solved: True
+2026-05-08 13:13:29,544 - INFO - Testing CAPTCHA (12 out of 26): arkose/multichoice/hand_number
+history: 1
+2026-05-08 13:13:52,839 - INFO - Solved: False
+2026-05-08 13:13:52,839 - INFO - Testing CAPTCHA (13 out of 26): arkose/multichoice/card
+history: 1
+2026-05-08 13:14:16,574 - INFO - Solved: True
+2026-05-08 13:14:16,574 - INFO - Testing CAPTCHA (14 out of 26): arkose/multichoice/counting
+history: 1
+history: 1
+2026-05-08 13:15:54,709 - INFO - Solved: True
+2026-05-08 13:15:54,709 - INFO - Testing CAPTCHA (15 out of 26): arkose/multichoice/rotated
+history: 1
+2026-05-08 13:16:05,859 - INFO - Solved: True
+2026-05-08 13:16:05,859 - INFO - Testing CAPTCHA (16 out of 26): arkose/paged/dice_match
+
+0: 768x768 32 objects, 669.1ms
+Speed: 25.3ms preprocess, 669.1ms inference, 4.0ms postprocess per image at shape (1, 3, 768, 768)
+
+0: 96x768 1 object, 114.3ms
+Speed: 0.5ms preprocess, 114.3ms inference, 1.1ms postprocess per image at shape (1, 3, 96, 768)
+history: 1
+history: 1
+history: 1
+history: 1
+history: 1
+history: 1
+2026-05-08 13:18:27,186 - ERROR - Error: Timeout 60000ms exceeded while waiting for event "response"
+2026-05-08 13:18:27,187 - ERROR - Traceback (most recent call last):
+  File "/scratch/abhinav/Halligan/halligan/execute.py", line 124, in solve_captcha
+    with page.expect_response(lambda r: "/submit" in r.url, timeout=60000) as response_info:
+  File "/scratch/abhinav/Halligan/halligan/.pixi/envs/default/lib/python3.12/site-packages/playwright/_impl/_sync_base.py", line 85, in __exit__
+    self._event.value
+  File "/scratch/abhinav/Halligan/halligan/.pixi/envs/default/lib/python3.12/site-packages/playwright/_impl/_sync_base.py", line 59, in value
+    raise exception
+playwright._impl._errors.TimeoutError: Timeout 60000ms exceeded while waiting for event "response"
+
+2026-05-08 13:18:27,214 - INFO - Solved: False
+2026-05-08 13:18:27,214 - INFO - Testing CAPTCHA (17 out of 26): arkose/paged/rockstack
+
+0: 768x736 25 objects, 466.9ms
+Speed: 17.9ms preprocess, 466.9ms inference, 2.7ms postprocess per image at shape (1, 3, 768, 736)
+
+0: 96x768 1 object, 80.0ms
+Speed: 0.5ms preprocess, 80.0ms inference, 1.1ms postprocess per image at shape (1, 3, 96, 768)
+history: 1
+history: 1
+history: 1
+history: 1
+history: 1
+history: 1
+history: 1
+2026-05-08 13:19:42,875 - INFO - Solved: False
+2026-05-08 13:19:42,875 - INFO - Testing CAPTCHA (18 out of 26): arkose/paged/numbermatch
+
+0: 768x736 17 objects, 402.5ms
+Speed: 18.0ms preprocess, 402.5ms inference, 2.6ms postprocess per image at shape (1, 3, 768, 736)
+
+0: 96x768 1 object, 79.1ms
+Speed: 0.5ms preprocess, 79.1ms inference, 1.1ms postprocess per image at shape (1, 3, 96, 768)
+history: 1
+2026-05-08 13:19:54,717 - INFO - Solved: True
+2026-05-08 13:19:54,718 - INFO - Testing CAPTCHA (19 out of 26): arkose/paged/orbit_match_game
+
+0: 768x768 33 objects, 417.0ms
+Speed: 19.9ms preprocess, 417.0ms inference, 2.8ms postprocess per image at shape (1, 3, 768, 768)
+
+0: 96x768 1 object, 80.4ms
+Speed: 0.5ms preprocess, 80.4ms inference, 1.1ms postprocess per image at shape (1, 3, 96, 768)
+history: 1
+history: 1
+history: 1
+2026-05-08 13:20:54,407 - INFO - Solved: True
+2026-05-08 13:20:54,408 - INFO - Testing CAPTCHA (20 out of 26): arkose/paged/3d_rollball_objects
+
+0: 768x736 12 objects, 440.8ms
+Speed: 28.1ms preprocess, 440.8ms inference, 2.5ms postprocess per image at shape (1, 3, 768, 736)
+
+0: 96x768 1 object, 80.5ms
+Speed: 0.5ms preprocess, 80.5ms inference, 1.1ms postprocess per image at shape (1, 3, 96, 768)
+history: 1
+2026-05-08 13:21:39,665 - INFO - Solved: True
+2026-05-08 13:21:39,666 - INFO - Testing CAPTCHA (21 out of 26): mtcaptcha
+## Objective
+The task image contains 2 frame(s).
+
+First, provide one-sentence visual description of each frame.
+Second, identify the relationships between frames.
+Third, using the information, identify the sequential events and the final visual criteria that leads to solving the task.
+
+Use these Python tools:
+describe(frame_id: int, description: str)
+relate(frame_id1: int, frame_id2: int = None, relationship: str = '')
+objective(description: str)
+
+## Guidelines
+1. The output should be a Python block.
+2. The third step should be generic enough, it should not reveal the answer.
+3. In the third step, all event should begin with atomic verbs like `click`, `slide`, `drag`, `draw` and refer to choices/states rather than objects.
+4. Please describe rectangle boxes with hints (e.g., case sensitivity), instructions, or placeholders as input fields.
+history: 1
+
+describe(frame_id=0, description="A text input field with the placeholder 'Enter text from image'.")
+describe(frame_id=1, description="An image containing a sequence of distorted, stylized characters against a dark, textured background.")
+relate(frame_id1=0, frame_id2=1, relationship="The text input field in frame 0 is intended for the user to transcribe the characters displayed in frame 1.")
+objective(description="Transcribe the characters shown in the image into the provided text input field to complete the verification task.")
+
+
+0: 128x768 2 objects, 115.2ms
+Speed: 28.2ms preprocess, 115.2ms inference, 1.4ms postprocess per image at shape (1, 3, 128, 768)
+Solve tasks using your vision, coding, and language skills.
+When using code, the user cannot provide any other feedback or perform any other action beyond executing the code you suggest. The user can't modify your code. So do not suggest incomplete code which requires users to modify. Don't use a code block if it's not intended to be executed by the user.
+
+## Objective
+Transcribe the characters shown in the image into the provided text input field to complete the verification task.
+
+## Frame Relationships
+Frame 0 and Frame 1: The text input field in frame 0 is intended for the user to transcribe the characters displayed in frame 1.
+
+Compose a Python script solution. Example:
+```python
+def solve(frames: list) -> None:
+    # Extract the CAPTCHA text from the image in Frame 1
+    captcha_image = frames[1].image
+    captcha_text = "iPmhr"  # Manually identified from the image
+
+    # Get the input field element in Frame 1
+    input_field = frames[1].get_interactable(0)
+
+    # Enter the CAPTCHA text into the input field
+    enter(input_field, captcha_text)
+
+    # Click the "Next" button to submit
+    next_button = frames[1].get_interactable(1)
+    click(next_button)
+```
+
+You can perform these actions:
+        enter(field: Union[Frame, Element], text: str) -> None:
+                Click on an input field and enter text.
+
+You can use these tools in the Python script to help you:
+        Frame.image -> PIL.Image.Image:
+                Each frame has a referenceable image for processing/analysis.
+
+        Frame.get_interactable(id: int) -> Element:
+                Get an interactable element in the frame by its id.
+
+## Guidelines
+1. You can provide the answer for math and text challenges without using tools.
+2. You are only allowed to use to given tools rather than importing new tools.
+3. Compose the solution without referencing the possible answer in the objective (e.g., flowers -> icon).
+4. You should implement all placeholders.
+5. Exact match (==) is illegal because there are error and variance in the tools.
+history: 1
+def solve(frames: list) -> None:
+    captcha_text = 'iPmhr'
+    input_field = frames[0].get_interactable(0)
+    enter(input_field, captcha_text)
+2026-05-08 13:21:57,144 - INFO - Solved: True
+2026-05-08 13:21:57,144 - INFO - Testing CAPTCHA (22 out of 26): recaptchav2
+
+0: 768x544 4 objects, 479.4ms
+Speed: 18.0ms preprocess, 479.4ms inference, 2.3ms postprocess per image at shape (1, 3, 768, 544)
+history: 1
+history: 1
+2026-05-08 13:22:34,421 - INFO - Solved: True
+2026-05-08 13:22:34,421 - INFO - Testing CAPTCHA (23 out of 26): tencent
+## Objective
+The task image contains 2 frame(s).
+
+First, provide one-sentence visual description of each frame.
+Second, identify the relationships between frames.
+Third, using the information, identify the sequential events and the final visual criteria that leads to solving the task.
+
+Use these Python tools:
+describe(frame_id: int, description: str)
+relate(frame_id1: int, frame_id2: int = None, relationship: str = '')
+objective(description: str)
+
+## Guidelines
+1. The output should be a Python block.
+2. The third step should be generic enough, it should not reveal the answer.
+3. In the third step, all event should begin with atomic verbs like `click`, `slide`, `drag`, `draw` and refer to choices/states rather than objects.
+4. Please describe rectangle boxes with hints (e.g., case sensitivity), instructions, or placeholders as input fields.
+history: 1
+
+describe(frame_id=0, description="The frame contains text instructions to click on the object directly below the letter 'm'.")
+describe(frame_id=1, description="The frame displays various 3D objects, including letters 'm' and 'l', a blue cylinder, a green cylinder, a yellow cylinder, and a blue cone.")
+relate(frame_id1=0, frame_id2=1, relationship="The first frame provides the instruction for the task to be performed on the objects shown in the second frame.")
+objective(description="Identify the letter 'm' that has an object positioned directly beneath it and click on that specific object.")
+
+history: 1
+history: 1
+2026-05-08 13:23:20,801 - INFO - Solved: True
+2026-05-08 13:23:20,801 - INFO - Testing CAPTCHA (24 out of 26): yandex/text
+## Objective
+The task image contains 5 frame(s).
+
+First, provide one-sentence visual description of each frame.
+Second, identify the relationships between frames.
+Third, using the information, identify the sequential events and the final visual criteria that leads to solving the task.
+
+Use these Python tools:
+describe(frame_id: int, description: str)
+relate(frame_id1: int, frame_id2: int = None, relationship: str = '')
+objective(description: str)
+
+## Guidelines
+1. The output should be a Python block.
+2. The third step should be generic enough, it should not reveal the answer.
+3. In the third step, all event should begin with atomic verbs like `click`, `slide`, `drag`, `draw` and refer to choices/states rather than objects.
+4. Please describe rectangle boxes with hints (e.g., case sensitivity), instructions, or placeholders as input fields.
+history: 1
+
+describe(0, "A blank, light-colored background.")
+describe(1, "An image containing the text 'mantle outbound' with a gray triangular shape.")
+describe(2, "A blue button labeled 'Submit'.")
+describe(3, "An input field with the placeholder text 'Uppercase or lowercase letters'.")
+describe(4, "A text instruction stating 'Enter the code from the image'.")
+
+relate(4, 1, "provides context for")
+relate(3, 4, "is the input field for")
+relate(2, 3, "is the action button for")
+
+objective("Complete the CAPTCHA verification by entering the text displayed in the image into the input field and submitting the form.")
+
+
+0: 320x768 10 objects, 268.2ms
+Speed: 34.6ms preprocess, 268.2ms inference, 1.9ms postprocess per image at shape (1, 3, 320, 768)
+
+0: 96x768 1 object, 82.0ms
+Speed: 0.5ms preprocess, 82.0ms inference, 1.1ms postprocess per image at shape (1, 3, 96, 768)
+
+0: 128x768 2 objects, 99.8ms
+Speed: 0.7ms preprocess, 99.8ms inference, 1.3ms postprocess per image at shape (1, 3, 128, 768)
+Solve tasks using your vision, coding, and language skills.
+When using code, the user cannot provide any other feedback or perform any other action beyond executing the code you suggest. The user can't modify your code. So do not suggest incomplete code which requires users to modify. Don't use a code block if it's not intended to be executed by the user.
+
+## Objective
+Complete the CAPTCHA verification by entering the text displayed in the image into the input field and submitting the form.
+
+## Frame Relationships
+Frame 2 and Frame 3: is the action button for
+Frame 3 and Frame 4: is the input field for
+Frame 4 and Frame 1: provides context for
+
+Compose a Python script solution. Example:
+```python
+def solve(frame: list[Frame]) -> None:
+    # First, annotate a part of frame with keypoints
+    # Each keypoint is a number in the image
+    keypoint_image = frames[1].show_keypoints(region="all")
+
+    # Get the correct element to drag
+    drag_from = frames[1].get_interactable(0)
+
+    # Get the drag to keypoint
+    drag_to_id = ask([keypoint_image], "where is the missing spot?", answer_type="int")
+    drag_to = frames[i].get_keypoint(id=drag_to_id[0])
+
+    # Get the surrounding Points
+    neighbour_image = drag_to.show_neighbours()
+
+    # Secondary refinement
+    refined_answer = ask([neighbour_image], "where is the missing spot?", answer_type="int")
+
+    # Get the Point corresponding to the number answer
+    drag_to = keypoint.get_neighbour(id=refined_answer[0])
+
+    # Drag from start to end
+    drag_choices = drag(start=drag_from, end=drag_to)
+
+    # Refine the release point by ranking the adjustments
+    ranks = rank([choice.image for choice in drag_choices], "Puzzle is fully in the missing spot")
+    drag_choices[ranks[0]].release()
+```
+
+```python
+def solve(frames: list) -> None:
+    # Extract the CAPTCHA text from the image in Frame 1
+    captcha_image = frames[1].image
+    captcha_text = "iPmhr"  # Manually identified from the image
+
+    # Get the input field element in Frame 1
+    input_field = frames[1].get_interactable(0)
+
+    # Enter the CAPTCHA text into the input field
+    enter(input_field, captcha_text)
+
+    # Click the "Next" button to submit
+    next_button = frames[1].get_interactable(1)
+    click(next_button)
+```
+
+You can perform these actions:
+        click(target: Union[Frame, Element]) -> None:
+                Click a UI button.
+
+        drag(start: Element, end: Point) -> list[DragChoice]:
+                Drag element from start to end point.
+
+                Returns:
+                    drag_choices (list[DragChoice]): make minor adjustments at the endpoint.
+
+        DragChoice.preview -> PIL.Image.Image:
+                A preview of the drag-and-drop results.
+
+        DragChoice.drop() -> None:
+                Confirm this as the final choice and drop here.
+
+        enter(field: Union[Frame, Element], text: str) -> None:
+                Click on an input field and enter text.
+
+You can use these tools in the Python script to help you:
+        ask(images: list[Image], question: str, answer_type: str) -> list[typing.Any]:
+                Ask a question about the visual state of a batch of images.
+                `answer_type` can be `bool`, `int`, `str`.
+                Returns answers (list[Any]), a list of `answer_type` outputs for each image.
+
+        rank(images: list[Image], task_objective: str) -> list[str]:
+                Ranks each image in the `images` list based on the specified criteria in `task_objective`.
+                Returns image_ids (list[int]), a list of image IDs ordered by descending rank.
+
+        Frame.show_keypoints(region: Literal[all, top, bottom, left, right]) -> PIL.Image.Image:
+                Annotate keypoints on the Frame. Each keypoint has a number ID.
+                Keypoints allows you to work in 2D spaces (drag-and-drop / drawing / pointing).
+                Returns
+                    image (PIL.Image.Image): The frame image with all keypoints annotated on it.
+
+        Frame.get_keypoint(id: int) -> Point:
+                Get a keypoint in the frame by its id.
+
+        Point.show_neighbours() -> PIL.Image.Image:
+                Reduce the search space for further analysis by narrowing down to keypoints surrounding this point.
+
+        Point.get_neighbour(id: int) -> Point:
+                Get a neighbouring keypoint by its id.
+
+        Frame.image -> PIL.Image.Image:
+                Each frame has a referenceable image for processing/analysis.
+
+        Frame.get_interactable(id: int) -> Element:
+                Get an interactable element in the frame by its id.
+
+## Guidelines
+1. You can provide the answer for math and text challenges without using tools.
+2. You are only allowed to use to given tools rather than importing new tools.
+3. Compose the solution without referencing the possible answer in the objective (e.g., flowers -> icon).
+4. You should implement all placeholders.
+5. Exact match (==) is illegal because there are error and variance in the tools.
+history: 1
+def solve(frames: list) -> None:
+    captcha_text = 'mantle outbound'
+    input_field = frames[3].get_interactable(0)
+    enter(input_field, captcha_text)
+    submit_button = frames[2].get_interactable(0)
+    click(submit_button)
+2026-05-08 13:23:47,770 - INFO - Solved: True
+2026-05-08 13:23:47,771 - INFO - Testing CAPTCHA (25 out of 26): yandex/kaleidoscope
+
+0: 128x768 2 objects, 103.6ms
+Speed: 17.4ms preprocess, 103.6ms inference, 1.3ms postprocess per image at shape (1, 3, 128, 768)
+all images 6
+[]
+history: 1
+RESPONSE = '''
+rank(ids=[2, 1, 0, 4, 3, 5])
+'''
+TIME = 22.59968764311634
+FINGERPRINT = None
+TOTAL_TOKENS = 6670
+PROMPT_TOKENS = 6649
+COMPLETION_TOKENS = 21
+all images 10
+[]
+history: 1
+RESPONSE = '''
+rank(ids=[2, 3, 4, 5, 6, 7, 0, 1, 8, 9])
+'''
+TIME = 5.780186699936166
+FINGERPRINT = None
+TOTAL_TOKENS = 11062
+PROMPT_TOKENS = 11029
+COMPLETION_TOKENS = 33
+2026-05-08 13:24:19,331 - INFO - Solved: False
+2026-05-08 13:24:19,331 - INFO - Testing CAPTCHA (26 out of 26): amazon
+
+0: 768x576 2 objects, 336.8ms
+Speed: 16.6ms preprocess, 336.8ms inference, 1.7ms postprocess per image at shape (1, 3, 768, 576)
+history: 1
+history: 1
+2026-05-08 13:24:42,600 - INFO - Solved: True
+(base) linux@abhinav:/scratch/abhinav/Halligan/halligan$ grep -E "Testing|Solved" /scratch/abhinav/Halligan/halligan/agent-*.log
+/scratch/abhinav/Halligan/halligan/agent-2026-05-08_13-08-50.log:2026-05-08 13:08:50,658 - INFO - Testing CAPTCHA (1 out of 26): lemin
+/scratch/abhinav/Halligan/halligan/agent-2026-05-08_13-08-50.log:2026-05-08 13:09:22,043 - INFO - Solved: False
+/scratch/abhinav/Halligan/halligan/agent-2026-05-08_13-08-50.log:2026-05-08 13:09:22,044 - INFO - Testing CAPTCHA (2 out of 26): geetest/slide
+/scratch/abhinav/Halligan/halligan/agent-2026-05-08_13-08-50.log:2026-05-08 13:10:10,797 - INFO - Solved: True
+/scratch/abhinav/Halligan/halligan/agent-2026-05-08_13-08-50.log:2026-05-08 13:10:10,797 - INFO - Testing CAPTCHA (3 out of 26): geetest/gobang
+/scratch/abhinav/Halligan/halligan/agent-2026-05-08_13-08-50.log:2026-05-08 13:10:19,383 - INFO - Solved: True
+/scratch/abhinav/Halligan/halligan/agent-2026-05-08_13-08-50.log:2026-05-08 13:10:19,383 - INFO - Testing CAPTCHA (4 out of 26): geetest/icon
+/scratch/abhinav/Halligan/halligan/agent-2026-05-08_13-08-50.log:2026-05-08 13:10:47,060 - INFO - Solved: False
+/scratch/abhinav/Halligan/halligan/agent-2026-05-08_13-08-50.log:2026-05-08 13:10:47,060 - INFO - Testing CAPTCHA (5 out of 26): geetest/iconcrush
+/scratch/abhinav/Halligan/halligan/agent-2026-05-08_13-08-50.log:2026-05-08 13:11:15,377 - INFO - Solved: True
+/scratch/abhinav/Halligan/halligan/agent-2026-05-08_13-08-50.log:2026-05-08 13:11:15,377 - INFO - Testing CAPTCHA (6 out of 26): baidu
+/scratch/abhinav/Halligan/halligan/agent-2026-05-08_13-08-50.log:2026-05-08 13:11:40,090 - INFO - Solved: True
+/scratch/abhinav/Halligan/halligan/agent-2026-05-08_13-08-50.log:2026-05-08 13:11:40,090 - INFO - Testing CAPTCHA (7 out of 26): hcaptcha
+/scratch/abhinav/Halligan/halligan/agent-2026-05-08_13-08-50.log:2026-05-08 13:12:05,159 - INFO - Solved: True
+/scratch/abhinav/Halligan/halligan/agent-2026-05-08_13-08-50.log:2026-05-08 13:12:05,160 - INFO - Testing CAPTCHA (8 out of 26): botdetect
+/scratch/abhinav/Halligan/halligan/agent-2026-05-08_13-08-50.log:2026-05-08 13:12:14,243 - INFO - Solved: True
+/scratch/abhinav/Halligan/halligan/agent-2026-05-08_13-08-50.log:2026-05-08 13:12:14,243 - INFO - Testing CAPTCHA (9 out of 26): arkose/multichoice/square_icon
+/scratch/abhinav/Halligan/halligan/agent-2026-05-08_13-08-50.log:2026-05-08 13:12:36,804 - INFO - Solved: True
+/scratch/abhinav/Halligan/halligan/agent-2026-05-08_13-08-50.log:2026-05-08 13:12:36,804 - INFO - Testing CAPTCHA (10 out of 26): arkose/multichoice/galaxies
+/scratch/abhinav/Halligan/halligan/agent-2026-05-08_13-08-50.log:2026-05-08 13:13:02,164 - INFO - Solved: True
+/scratch/abhinav/Halligan/halligan/agent-2026-05-08_13-08-50.log:2026-05-08 13:13:02,164 - INFO - Testing CAPTCHA (11 out of 26): arkose/multichoice/dice_pair
+/scratch/abhinav/Halligan/halligan/agent-2026-05-08_13-08-50.log:2026-05-08 13:13:29,544 - INFO - Solved: True
+/scratch/abhinav/Halligan/halligan/agent-2026-05-08_13-08-50.log:2026-05-08 13:13:29,544 - INFO - Testing CAPTCHA (12 out of 26): arkose/multichoice/hand_number
+/scratch/abhinav/Halligan/halligan/agent-2026-05-08_13-08-50.log:2026-05-08 13:13:52,839 - INFO - Solved: False
+/scratch/abhinav/Halligan/halligan/agent-2026-05-08_13-08-50.log:2026-05-08 13:13:52,839 - INFO - Testing CAPTCHA (13 out of 26): arkose/multichoice/card
+/scratch/abhinav/Halligan/halligan/agent-2026-05-08_13-08-50.log:2026-05-08 13:14:16,574 - INFO - Solved: True
+/scratch/abhinav/Halligan/halligan/agent-2026-05-08_13-08-50.log:2026-05-08 13:14:16,574 - INFO - Testing CAPTCHA (14 out of 26): arkose/multichoice/counting
+/scratch/abhinav/Halligan/halligan/agent-2026-05-08_13-08-50.log:2026-05-08 13:15:54,709 - INFO - Solved: True
+/scratch/abhinav/Halligan/halligan/agent-2026-05-08_13-08-50.log:2026-05-08 13:15:54,709 - INFO - Testing CAPTCHA (15 out of 26): arkose/multichoice/rotated
+/scratch/abhinav/Halligan/halligan/agent-2026-05-08_13-08-50.log:2026-05-08 13:16:05,859 - INFO - Solved: True
+/scratch/abhinav/Halligan/halligan/agent-2026-05-08_13-08-50.log:2026-05-08 13:16:05,859 - INFO - Testing CAPTCHA (16 out of 26): arkose/paged/dice_match
+/scratch/abhinav/Halligan/halligan/agent-2026-05-08_13-08-50.log:2026-05-08 13:18:27,214 - INFO - Solved: False
+/scratch/abhinav/Halligan/halligan/agent-2026-05-08_13-08-50.log:2026-05-08 13:18:27,214 - INFO - Testing CAPTCHA (17 out of 26): arkose/paged/rockstack
+/scratch/abhinav/Halligan/halligan/agent-2026-05-08_13-08-50.log:2026-05-08 13:19:42,875 - INFO - Solved: False
+/scratch/abhinav/Halligan/halligan/agent-2026-05-08_13-08-50.log:2026-05-08 13:19:42,875 - INFO - Testing CAPTCHA (18 out of 26): arkose/paged/numbermatch
+/scratch/abhinav/Halligan/halligan/agent-2026-05-08_13-08-50.log:2026-05-08 13:19:54,717 - INFO - Solved: True
+/scratch/abhinav/Halligan/halligan/agent-2026-05-08_13-08-50.log:2026-05-08 13:19:54,718 - INFO - Testing CAPTCHA (19 out of 26): arkose/paged/orbit_match_game
+/scratch/abhinav/Halligan/halligan/agent-2026-05-08_13-08-50.log:2026-05-08 13:20:54,407 - INFO - Solved: True
+/scratch/abhinav/Halligan/halligan/agent-2026-05-08_13-08-50.log:2026-05-08 13:20:54,408 - INFO - Testing CAPTCHA (20 out of 26): arkose/paged/3d_rollball_objects
+/scratch/abhinav/Halligan/halligan/agent-2026-05-08_13-08-50.log:2026-05-08 13:21:39,665 - INFO - Solved: True
+/scratch/abhinav/Halligan/halligan/agent-2026-05-08_13-08-50.log:2026-05-08 13:21:39,666 - INFO - Testing CAPTCHA (21 out of 26): mtcaptcha
+/scratch/abhinav/Halligan/halligan/agent-2026-05-08_13-08-50.log:2026-05-08 13:21:57,144 - INFO - Solved: True
+/scratch/abhinav/Halligan/halligan/agent-2026-05-08_13-08-50.log:2026-05-08 13:21:57,144 - INFO - Testing CAPTCHA (22 out of 26): recaptchav2
+/scratch/abhinav/Halligan/halligan/agent-2026-05-08_13-08-50.log:2026-05-08 13:22:34,421 - INFO - Solved: True
+/scratch/abhinav/Halligan/halligan/agent-2026-05-08_13-08-50.log:2026-05-08 13:22:34,421 - INFO - Testing CAPTCHA (23 out of 26): tencent
+/scratch/abhinav/Halligan/halligan/agent-2026-05-08_13-08-50.log:2026-05-08 13:23:20,801 - INFO - Solved: True
+/scratch/abhinav/Halligan/halligan/agent-2026-05-08_13-08-50.log:2026-05-08 13:23:20,801 - INFO - Testing CAPTCHA (24 out of 26): yandex/text
+/scratch/abhinav/Halligan/halligan/agent-2026-05-08_13-08-50.log:2026-05-08 13:23:47,770 - INFO - Solved: True
+/scratch/abhinav/Halligan/halligan/agent-2026-05-08_13-08-50.log:2026-05-08 13:23:47,771 - INFO - Testing CAPTCHA (25 out of 26): yandex/kaleidoscope
+/scratch/abhinav/Halligan/halligan/agent-2026-05-08_13-08-50.log:2026-05-08 13:24:19,331 - INFO - Solved: False
+/scratch/abhinav/Halligan/halligan/agent-2026-05-08_13-08-50.log:2026-05-08 13:24:19,331 - INFO - Testing CAPTCHA (26 out of 26): amazon
+/scratch/abhinav/Halligan/halligan/agent-2026-05-08_13-08-50.log:2026-05-08 13:24:42,600 - INFO - Solved: True
+(base) linux@abhinav:/scratch/abhinav/Halligan/halligan$ grep "Solved: True" /scratch/abhinav/Halligan/halligan/agent-*.log | wc -l
+20
+(base) linux@abhinav:/scratch/abhinav/Halligan/halligan$ ls /scratch/abhinav/Halligan/halligan/results/execute/
+amazon.ipynb                          arkose_multichoice_square_icon.ipynb    botdetect.ipynb          mtcaptcha.ipynb
+arkose_multichoice_card.ipynb         arkose_paged_3d_rollball_objects.ipynb  geetest_gobang.ipynb     recaptchav2.ipynb
+arkose_multichoice_counting.ipynb     arkose_paged_dice_match.ipynb           geetest_iconcrush.ipynb  tencent.ipynb
+arkose_multichoice_dice_pair.ipynb    arkose_paged_numbermatch.ipynb          geetest_icon.ipynb       yandex_kaleidoscope.ipynb
+arkose_multichoice_galaxies.ipynb     arkose_paged_orbit_match_game.ipynb     geetest_slide.ipynb      yandex_text.ipynb
+arkose_multichoice_hand_number.ipynb  arkose_paged_rockstack.ipynb            hcaptcha.ipynb
+arkose_multichoice_rotated.ipynb      baidu.ipynb                             lemin.ipynb
+(base) linux@abhinav:/scratch/abhinav/Halligan/halligan$
